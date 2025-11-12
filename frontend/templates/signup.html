@@ -1,0 +1,121 @@
+{% extends "base.html" %}
+
+{% block title %}Sign Up - Flask Auth App{% endblock %}
+
+{% block content %}
+<div class="auth-container">
+    <div class="auth-card">
+        <div class="auth-header">
+            <h2><i class="fas fa-user-plus me-2"></i>Sign Up</h2>
+            <p>Create a new account to get started.</p>
+        </div>
+
+        <form method="POST" action="{{ url_for('auth.signup') }}">
+            {{ form.hidden_tag() }}
+            
+            <div class="mb-3">
+                {{ form.username.label(class="form-label") }}
+                {{ form.username(class="form-control", required=true) }}
+                {% if form.username.errors %}
+                    <div class="invalid-feedback d-block">
+                        {% for error in form.username.errors %}
+                            <div>{{ error }}</div>
+                        {% endfor %}
+                    </div>
+                {% endif %}
+                <div class="form-text">Choose a unique username (min 3 characters)</div>
+            </div>
+
+            <div class="mb-3">
+                {{ form.email.label(class="form-label") }}
+                {{ form.email(class="form-control", required=true) }}
+                {% if form.email.errors %}
+                    <div class="invalid-feedback d-block">
+                        {% for error in form.email.errors %}
+                            <div>{{ error }}</div>
+                        {% endfor %}
+                    </div>
+                {% endif %}
+                <div class="form-text">We'll never share your email with anyone else</div>
+            </div>
+
+            <div class="mb-3">
+                {{ form.password.label(class="form-label") }}
+                {{ form.password(class="form-control", required=true) }}
+                {% if form.password.errors %}
+                    <div class="invalid-feedback d-block">
+                        {% for error in form.password.errors %}
+                            <div>{{ error }}</div>
+                        {% endfor %}
+                    </div>
+                {% endif %}
+                <div class="form-text">
+                    <div id="passwordStrength" class="password-strength"></div>
+                    Must contain: 6+ characters, at least 1 letter and 1 number
+                </div>
+            </div>
+
+            <div class="mb-4">
+                {{ form.confirm_password.label(class="form-label") }}
+                {{ form.confirm_password(class="form-control", required=true, **{'id': 'confirmPassword'}) }}
+                {% if form.confirm_password.errors %}
+                    <div class="invalid-feedback d-block">
+                        {% for error in form.confirm_password.errors %}
+                            <div>{{ error }}</div>
+                        {% endfor %}
+                    </div>
+                {% endif %}
+            </div>
+
+            <div class="mb-3 form-check">
+                {{ form.agree_terms(class="form-check-input", required=true) }}
+                {{ form.agree_terms.label(class="form-check-label") }}
+                {% if form.agree_terms.errors %}
+                    <div class="invalid-feedback d-block">
+                        {% for error in form.agree_terms.errors %}
+                            <div>{{ error }}</div>
+                        {% endfor %}
+                    </div>
+                {% endif %}
+            </div>
+
+            <div class="d-grid">
+                <button type="submit" class="btn btn-primary">
+                    <i class="fas fa-user-plus me-2"></i>Create Account
+                </button>
+            </div>
+        </form>
+
+        <div class="auth-footer">
+            <p class="mb-0">
+                Already have an account? 
+                <a href="{{ url_for('auth.login') }}" class="text-decoration-none fw-bold">
+                    Sign in here
+                </a>
+            </p>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+.password-strength {
+    font-size: 0.875rem;
+    font-weight: 500;
+    margin-top: 0.25rem;
+}
+.password-strength.weak { color: #dc3545; }
+.password-strength.medium { color: #ffc107; }
+.password-strength.strong { color: #28a745; }
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Focus on username field
+    document.querySelector('#username').focus();
+});
+</script>
+{% endblock %}

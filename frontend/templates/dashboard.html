@@ -182,6 +182,23 @@
                 </div>
             </div>
         </div>
+
+        <!-- Weather AI Card -->
+        <div class="card mt-3" style="background: linear-gradient(135deg, #74b9ff 0%, #0984e3 100%); color: white;">
+            <div class="card-header border-0" style="background: transparent;">
+                <h5 class="mb-0 text-white">
+                    <i class="fas fa-cloud-sun me-2"></i>AI Weather Prediction
+                </h5>
+            </div>
+            <div class="card-body">
+                <p class="card-text mb-3">
+                    Get advanced weather forecasts powered by LangChain and Gemini AI using Japan's electricity data.
+                </p>
+                <a href="{{ url_for('auth.weather_dashboard') }}" class="btn btn-light btn-sm">
+                    <i class="fas fa-brain me-1"></i>Launch Weather AI
+                </a>
+            </div>
+        </div>
     </div>
 </div>
 

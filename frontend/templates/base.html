@@ -11,6 +11,9 @@
     <!-- Font Awesome Icons -->
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     
+    <!-- CSRF Token -->
+    <meta name="csrf-token" content="{{ csrf_token() }}">
+    
     <!-- Custom CSS -->
     <link href="{{ url_for('static', filename='css/main.css') }}" rel="stylesheet">
     
@@ -35,6 +38,11 @@
                     <li class="nav-item">
                         <a class="nav-link" href="{{ url_for('auth.dashboard') }}">
                             <i class="fas fa-tachometer-alt me-1"></i>Dashboard
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('auth.weather_dashboard') }}">
+                            <i class="fas fa-cloud-sun me-1"></i>Weather AI
                         </a>
                     </li>
                     {% endif %}

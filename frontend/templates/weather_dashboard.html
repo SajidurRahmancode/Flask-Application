@@ -1,0 +1,659 @@
+{% extends "base.html" %}
+
+{% block title %}Weather Prediction - Japan AI Weather{% endblock %}
+
+{% block extra_css %}
+<style>
+.weather-header {
+    background: linear-gradient(135deg, #74b9ff 0%, #0984e3 50%, #6c5ce7 100%);
+    color: white;
+    border-radius: 15px;
+    padding: 2rem;
+    margin-bottom: 2rem;
+}
+
+.prediction-card {
+    background: white;
+    border-radius: 15px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+    transition: transform 0.3s ease;
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+}
+
+.prediction-card:hover {
+    transform: translateY(-5px);
+}
+
+.btn-predict {
+    background: linear-gradient(135deg, #6c5ce7 0%, #a29bfe 100%);
+    border: none;
+    padding: 12px 30px;
+    font-weight: 600;
+}
+
+.btn-predict:hover {
+    background: linear-gradient(135deg, #5a4fcf 0%, #9085e8 100%);
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(108, 92, 231, 0.3);
+}
+
+.weather-stats p {
+    margin-bottom: 0.5rem;
+    font-size: 0.9rem;
+}
+
+.pattern-result-card {
+    border-left: 4px solid #74b9ff;
+}
+
+.loading-spinner {
+    display: none;
+    text-align: center;
+    padding: 2rem;
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <!-- Header -->
+    <div class="weather-header text-center">
+        <h1 class="display-4 fw-bold mb-3">🌤️ AI Weather Forecast</h1>
+        <p class="lead mb-0">Advanced weather predictions using LangChain + RAG + Gemini AI</p>
+    </div>
+
+    <!-- Quota Notice -->
+    <div class="alert alert-warning mt-3" role="alert">
+        <i class="fas fa-info-circle me-2"></i>
+        <strong>Notice:</strong> AI service is currently experiencing quota limitations. 
+        The system will use RAG-enhanced statistical analysis with historical pattern matching 
+        as a fallback when AI prediction is unavailable.
+    </div>
+
+    <div class="row">
+        <!-- Control Panel -->
+        <div class="col-lg-4">
+            <div class="prediction-card">
+                <h5 class="card-title mb-4">
+                    <i class="fas fa-cog me-2 text-primary"></i>
+                    Prediction Settings
+                </h5>
+                
+                <form id="predictionForm">
+                    <div class="mb-3">
+                        <label for="location" class="form-label fw-bold">📍 Location</label>
+                        <input type="text" class="form-control" id="location" name="location" value="Tokyo" required>
+                        <div class="form-text">Enter city or region for forecast</div>
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label for="prediction_days" class="form-label fw-bold">📅 Forecast Period</label>
+                        <select class="form-select" id="prediction_days" name="prediction_days">
+                            <option value="3">3 Days</option>
+                            <option value="5">5 Days</option>
+                            <option value="7" selected>7 Days</option>
+                            <option value="10">10 Days</option>
+                            <option value="14">14 Days</option>
+                        </select>
+                    </div>
+                    
+                    <!-- Prediction Method -->
+                    <div class="mb-4">
+                        <label class="form-label fw-bold">🧠 AI Method</label>
+                        
+                        <!-- Cloud AI Options -->
+                        <h6 class="text-primary mt-3 mb-2">☁️ Cloud AI (Quota Limited)</h6>
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" name="predictionMethod" id="standard" value="standard">
+                            <label class="form-check-label" for="standard">
+                                🤖 Standard Gemini AI
+                            </label>
+                            <small class="form-text text-muted d-block">Basic LangChain + Gemini (quota limited)</small>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" name="predictionMethod" id="ragEnhanced" value="rag">
+                            <label class="form-check-label" for="ragEnhanced">
+                                🧠 RAG + Gemini AI
+                            </label>
+                            <small class="form-text text-muted d-block">Historical patterns + Gemini (quota limited)</small>
+                        </div>
+                        
+                        <!-- Local AI Options -->
+                        <h6 class="text-success mt-3 mb-2">🏠 Local AI (Unlimited)</h6>
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" name="predictionMethod" id="localLlm" value="local">
+                            <label class="form-check-label" for="localLlm">
+                                🏠 Local LLM Only
+                            </label>
+                            <small class="form-text text-muted d-block">LM Studio local AI (unlimited, private)</small>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" name="predictionMethod" id="ragLocal" value="rag_local">
+                            <label class="form-check-label" for="ragLocal">
+                                🧠 RAG + Local LLM
+                            </label>
+                            <small class="form-text text-muted d-block">Historical patterns + Local AI</small>
+                        </div>
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" name="predictionMethod" id="langchainRag" value="langchain_rag">
+                            <label class="form-check-label" for="langchainRag">
+                                🚀 LangChain + RAG (Ultimate)
+                            </label>
+                            <small class="form-text text-muted d-block">Best: Advanced orchestration + conversation memory</small>
+                        </div>
+                        
+                        <!-- Hybrid Option -->
+                        <h6 class="text-info mt-3 mb-2">🔄 Intelligent (Recommended)</h6>
+                        <div class="form-check">
+                            <input class="form-check-input" type="radio" name="predictionMethod" id="hybrid" value="hybrid" checked>
+                            <label class="form-check-label" for="hybrid">
+                                🔄 Hybrid Smart Fallback
+                            </label>
+                            <small class="form-text text-muted d-block">Auto-selects best available method</small>
+                        </div>
+                    </div>
+                    
+                    <button type="submit" class="btn btn-predict btn-primary w-100 mb-3">
+                        <i class="fas fa-brain me-2"></i>Generate AI Prediction
+                    </button>
+                </form>
+
+                <!-- Pattern Search -->
+                <div class="mt-3 pt-3 border-top">
+                    <label class="form-label fw-bold text-info">
+                        <i class="fas fa-search me-2"></i>Search Weather Patterns
+                    </label>
+                    <div class="input-group">
+                        <input type="text" class="form-control" id="patternQuery" placeholder="e.g., hot summer days">
+                        <button type="button" class="btn btn-info" onclick="searchWeatherPatterns()">
+                            Search
+                        </button>
+                    </div>
+                    <small class="text-muted">Find similar historical weather patterns</small>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Results Panel -->
+        <div class="col-lg-8">
+            <!-- Loading Spinner -->
+            <div id="loadingSpinner" class="loading-spinner">
+                <div class="spinner-border text-primary" role="status">
+                    <span class="visually-hidden">Loading...</span>
+                </div>
+                <p class="mt-3">Generating weather prediction...</p>
+            </div>
+            
+            <!-- Prediction Results -->
+            <div class="prediction-card">
+                <h5 class="card-title mb-4">
+                    <i class="fas fa-chart-line me-2 text-success"></i>
+                    Weather Forecast Results
+                </h5>
+                
+                <div id="predictionResults">
+                    <div class="text-center text-muted py-5">
+                        <i class="fas fa-cloud-sun" style="font-size: 4rem; opacity: 0.3;"></i>
+                        <h6 class="mt-3">Ready for Weather Prediction</h6>
+                        <p>Configure your settings and click "Generate AI Prediction" to get started.</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Pattern Search Results -->
+            <div id="patternSearchResults" style="display: none;" class="prediction-card">
+                <h5 class="text-info mb-3">
+                    <i class="fas fa-search me-2"></i>
+                    Historical Pattern Search Results
+                </h5>
+                <div id="patternResultsContent"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+// CSRF Token
+function getCSRFToken() {
+    return document.querySelector('meta[name=csrf-token]') ? 
+           document.querySelector('meta[name=csrf-token]').getAttribute('content') : '';
+}
+
+// Handle prediction form submission
+document.getElementById('predictionForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    generatePrediction();
+});
+
+// Generate Weather Prediction
+async function generatePrediction() {
+    const form = document.getElementById('predictionForm');
+    const formData = new FormData(form);
+    const loading = document.getElementById('loadingSpinner');
+    const results = document.getElementById('predictionResults');
+    const predictionMethod = formData.get('predictionMethod');
+    
+    // Show loading state
+    loading.style.display = 'block';
+    results.innerHTML = '';
+    
+    // Hide pattern search results when generating new prediction
+    document.getElementById('patternSearchResults').style.display = 'none';
+    
+    try {
+        // Determine endpoint and method description
+        let endpoint, methodDescription;
+        
+        switch(predictionMethod) {
+            case 'standard':
+                endpoint = '/api/weather/predict';
+                methodDescription = 'Standard Gemini AI';
+                break;
+            case 'rag':
+                endpoint = '/api/weather/predict-rag';
+                methodDescription = 'RAG + Gemini AI';
+                break;
+            case 'local':
+                endpoint = '/api/weather/predict-local';
+                methodDescription = 'Local LLM';
+                break;
+            case 'rag_local':
+                endpoint = '/api/weather/predict-rag-local';
+                methodDescription = 'RAG + Local LLM';
+                break;
+            case 'langchain_rag':
+                endpoint = '/api/weather/predict-langchain-rag';
+                methodDescription = 'LangChain + RAG (Ultimate)';
+                break;
+            case 'hybrid':
+                endpoint = '/api/weather/predict-hybrid';
+                methodDescription = 'Hybrid Smart Fallback';
+                break;
+            default:
+                endpoint = '/api/weather/predict-hybrid';
+                methodDescription = 'Hybrid Smart Fallback';
+        }
+        
+        console.log(`🚀 Using ${methodDescription} prediction`);
+        
+        // Update loading message based on method
+        const loadingMessage = predictionMethod.includes('local') || predictionMethod === 'hybrid' 
+            ? 'Generating local AI prediction...' 
+            : 'Generating cloud AI prediction...';
+        document.querySelector('#loadingSpinner p').textContent = loadingMessage;
+        
+        const response = await fetch(endpoint, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCSRFToken()
+            },
+            body: JSON.stringify({
+                location: formData.get('location'),
+                timeframe: parseInt(formData.get('prediction_days'))
+            })
+        });
+        
+        const data = await response.json();
+        
+        // Hide loading
+        loading.style.display = 'none';
+        
+        if (data.success) {
+            displayPredictionResults(data);
+        } else {
+            // Check for specific error types in the response
+            let errorType = null;
+            if (data.error_type) {
+                errorType = data.error_type;
+            } else if (data.error && typeof data.error === 'string') {
+                // Try to detect error type from message
+                if (data.error.toLowerCase().includes('timeout') || 
+                    data.error.toLowerCase().includes('taking longer than expected')) {
+                    errorType = 'timeout';
+                } else if (data.error.toLowerCase().includes('service unavailable') ||
+                          data.error.toLowerCase().includes('not available') ||
+                          data.error.toLowerCase().includes('not properly initialized')) {
+                    errorType = 'service_unavailable';
+                }
+            }
+            
+            displayError(data.error || 'Prediction failed', errorType);
+        }
+    } catch (error) {
+        console.error('Prediction error:', error);
+        loading.style.display = 'none';
+        displayError('Network error occurred');
+    }
+}
+
+// Display prediction results
+function displayPredictionResults(data) {
+    const results = document.getElementById('predictionResults');
+    
+    const method = data.method || data.source || 'standard';
+    
+    // Determine method badge and description
+    let methodBadge, methodDescription, badgeClass;
+    
+    switch(method) {
+        case 'local_llm':
+        case 'local':
+            methodBadge = '<span class="badge bg-success"><i class="fas fa-home me-1"></i>Local LLM</span>';
+            methodDescription = 'Generated using local AI (unlimited)';
+            badgeClass = 'success';
+            break;
+        case 'rag_local_llm':
+        case 'local_rag':
+            methodBadge = '<span class="badge bg-success"><i class="fas fa-brain me-1"></i>RAG + Local LLM</span>';
+            methodDescription = 'Enhanced with historical patterns + local AI';
+            badgeClass = 'success';
+            break;
+        case 'langchain_rag':
+            methodBadge = '<span class="badge bg-success" style="background: linear-gradient(135deg, #6c5ce7 0%, #a29bfe 100%) !important;"><i class="fas fa-star me-1"></i>LangChain + RAG Ultimate</span>';
+            methodDescription = 'Advanced orchestration with conversation memory + RAG + local AI';
+            badgeClass = 'success';
+            break;
+        case 'rag_enhanced':
+        case 'rag':
+            methodBadge = '<span class="badge bg-primary"><i class="fas fa-brain me-1"></i>RAG + Gemini</span>';
+            methodDescription = 'Enhanced with historical patterns + cloud AI';
+            badgeClass = 'primary';
+            break;
+        case 'hybrid_fallback':
+        case 'hybrid':
+            methodBadge = '<span class="badge bg-info"><i class="fas fa-magic me-1"></i>Hybrid Smart</span>';
+            methodDescription = 'Intelligent method selection with fallback';
+            badgeClass = 'info';
+            break;
+        case 'statistical':
+            methodBadge = '<span class="badge bg-warning"><i class="fas fa-chart-bar me-1"></i>Statistical</span>';
+            methodDescription = 'Pattern-based statistical analysis';
+            badgeClass = 'warning';
+            break;
+        default:
+            methodBadge = '<span class="badge bg-primary"><i class="fas fa-robot me-1"></i>Standard AI</span>';
+            methodDescription = 'Standard cloud AI prediction';
+            badgeClass = 'primary';
+    }
+    
+    // Check for quota limitations or fallback usage
+    const quotaNote = data.fallback_used ? 
+        '<div class="alert alert-info mt-3"><i class="fas fa-info-circle me-2"></i><strong>Note:</strong> AI service quota exceeded. Using statistical analysis fallback.</div>' : '';
+    
+    // Check for local AI advantages
+    const localAdvantage = (method.includes('local') || method === 'hybrid') ? 
+        '<div class="alert alert-success mt-3"><i class="fas fa-star me-2"></i><strong>Local AI:</strong> No quota limits, faster processing, complete privacy!</div>' : '';
+    
+    // Enhancement notice
+    const enhancementNote = data.enhancement ? 
+        `<div class="alert alert-info mt-3"><i class="fas fa-lightbulb me-2"></i><strong>Enhancement:</strong> ${data.enhancement}</div>` : '';
+    
+    results.innerHTML = `
+        <div class="alert alert-success">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <i class="fas fa-check-circle me-2"></i>
+                    <strong>Prediction Generated Successfully</strong>
+                </div>
+                <div class="text-end">
+                    ${methodBadge}
+                    <br>
+                    <span class="badge bg-secondary mt-1"><i class="fas fa-map-marker-alt me-1"></i>${data.location}</span>
+                    <span class="badge bg-info mt-1"><i class="fas fa-calendar me-1"></i>${data.timeframe || data.prediction_days} days</span>
+                </div>
+            </div>
+            <small class="text-muted d-block mt-2">${methodDescription}</small>
+        </div>
+        
+        <div class="prediction-content">
+            <div class="card">
+                <div class="card-body">
+                    <pre class="weather-forecast mb-0">${data.prediction}</pre>
+                </div>
+            </div>
+        </div>
+        
+        ${quotaNote}
+        ${localAdvantage}
+        ${enhancementNote}
+        
+        <div class="mt-3">
+            <div class="row text-center">
+                <div class="col-md-4">
+                    <small class="text-muted">
+                        <i class="fas fa-clock me-1"></i>
+                        Generated: ${new Date(data.timestamp || data.generated_at).toLocaleString()}
+                    </small>
+                </div>
+                <div class="col-md-4">
+                    <small class="text-muted">
+                        <i class="fas fa-cog me-1"></i>
+                        Model: ${data.model_used || 'AI Service'}
+                    </small>
+                </div>
+                <div class="col-md-4">
+                    <small class="text-muted">
+                        <i class="fas fa-database me-1"></i>
+                        Source: ${data.source === 'local' ? 'Local Processing' : 'Cloud Processing'}
+                    </small>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    // Scroll to results
+    results.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+// Display error message
+function displayError(errorMessage, errorType = null) {
+    const results = document.getElementById('predictionResults');
+    
+    // Check if this is a timeout error
+    const isTimeout = errorMessage.toLowerCase().includes('timeout') || 
+                     errorMessage.toLowerCase().includes('taking longer than expected') ||
+                     errorType === 'timeout';
+    
+    // Check if this is a service unavailable error
+    const isServiceUnavailable = errorMessage.toLowerCase().includes('service unavailable') ||
+                                errorMessage.toLowerCase().includes('service not available') ||
+                                errorMessage.toLowerCase().includes('not properly initialized');
+    
+    let alertClass, iconClass, title, guidance;
+    
+    if (isTimeout) {
+        alertClass = 'alert-warning';
+        iconClass = 'fas fa-clock';
+        title = 'Prediction Taking Longer Than Expected';
+        guidance = `
+            <div class="mt-3">
+                <h6><i class="fas fa-info-circle me-2"></i>What's happening:</h6>
+                <p>The AI model is processing your request but needs more time to generate a comprehensive prediction.</p>
+                
+                <h6><i class="fas fa-lightbulb me-2"></i>What you can do:</h6>
+                <ul class="mb-0">
+                    <li>Wait a moment and try again - the model may have finished processing</li>
+                    <li>Try a simpler location (e.g., "Tokyo" instead of detailed address)</li>
+                    <li>Use a shorter prediction timeframe (3-5 days instead of 7+)</li>
+                    <li>Switch to a faster method like "Hybrid AI" or "Statistical Analysis"</li>
+                </ul>
+            </div>
+        `;
+    } else if (isServiceUnavailable) {
+        alertClass = 'alert-info';
+        iconClass = 'fas fa-tools';
+        title = 'AI Service Temporarily Unavailable';
+        guidance = `
+            <div class="mt-3">
+                <h6><i class="fas fa-info-circle me-2"></i>What's happening:</h6>
+                <p>The requested AI service is not currently available or properly configured.</p>
+                
+                <h6><i class="fas fa-lightbulb me-2"></i>What you can do:</h6>
+                <ul class="mb-0">
+                    <li>Try a different prediction method from the dropdown</li>
+                    <li>Use "Statistical Analysis" for reliable baseline predictions</li>
+                    <li>Contact administrator if this problem persists</li>
+                </ul>
+            </div>
+        `;
+    } else {
+        alertClass = 'alert-danger';
+        iconClass = 'fas fa-exclamation-triangle';
+        title = 'Prediction Error';
+        guidance = `
+            <div class="mt-3">
+                <h6><i class="fas fa-lightbulb me-2"></i>What you can do:</h6>
+                <ul class="mb-0">
+                    <li>Check your internet connection</li>
+                    <li>Verify the location name is correct</li>
+                    <li>Try a different prediction method</li>
+                    <li>Refresh the page and try again</li>
+                </ul>
+            </div>
+        `;
+    }
+    
+    results.innerHTML = `
+        <div class="alert ${alertClass}">
+            <i class="${iconClass} me-2"></i>
+            <strong>${title}:</strong> ${errorMessage}
+        </div>
+        ${guidance}
+        <div class="text-center py-3">
+            <button class="btn btn-outline-primary" onclick="document.getElementById('weatherForm').style.display = 'block'">
+                <i class="fas fa-redo me-2"></i>Try Again
+            </button>
+        </div>
+    `;
+}
+
+// Search Weather Patterns using RAG
+async function searchWeatherPatterns() {
+    const query = document.getElementById('patternQuery').value.trim();
+    
+    if (!query) {
+        alert('Please enter a search query for weather patterns');
+        return;
+    }
+    
+    console.log(`🔍 Searching weather patterns for: ${query}`);
+    
+    try {
+        const response = await fetch('/api/weather/rag-search', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': getCSRFToken()
+            },
+            body: JSON.stringify({
+                query: query,
+                limit: 5
+            })
+        });
+        
+        const data = await response.json();
+        
+        if (data.success) {
+            displayPatternSearchResults(data, query);
+        } else {
+            displayPatternSearchError(data.error);
+        }
+    } catch (error) {
+        console.error('Pattern search error:', error);
+        displayPatternSearchError('Network error occurred during pattern search');
+    }
+}
+
+// Display pattern search results
+function displayPatternSearchResults(data, query) {
+    const resultsDiv = document.getElementById('patternSearchResults');
+    const contentDiv = document.getElementById('patternResultsContent');
+    
+    if (!data.results || data.results.length === 0) {
+        contentDiv.innerHTML = `
+            <div class="alert alert-warning">
+                <i class="fas fa-search me-2"></i>
+                <strong>No patterns found</strong> for query: "${query}"
+            </div>
+        `;
+        resultsDiv.style.display = 'block';
+        return;
+    }
+    
+    let html = `
+        <div class="alert alert-info">
+            <i class="fas fa-search me-2"></i>
+            Found <strong>${data.results.length}</strong> similar weather patterns for: "<em>${query}</em>"
+        </div>
+    `;
+    
+    data.results.forEach((result, index) => {
+        const metadata = result.metadata || {};
+        const temperature = metadata.avg_temp ? `${metadata.avg_temp.toFixed(1)}°C` : 'N/A';
+        const humidity = metadata.avg_humidity ? `${metadata.avg_humidity.toFixed(1)}%` : 'N/A';
+        const season = metadata.season || 'Unknown';
+        const date = metadata.date || 'Unknown';
+        const docType = result.doc_type || 'weather';
+        const relevanceScore = result.relevance_score ? (result.relevance_score * 100).toFixed(1) + '%' : 'N/A';
+        const wind = metadata.avg_wind ? `${metadata.avg_wind.toFixed(1)} m/s` : 'N/A';
+        
+        html += `
+            <div class="card mb-3 pattern-result-card">
+                <div class="card-header bg-light">
+                    <h6 class="mb-0">
+                        <i class="fas fa-calendar me-2"></i>Pattern ${index + 1}: ${date}
+                        <span class="badge bg-primary ms-2">${season}</span>
+                        <span class="badge bg-success ms-1">Score: ${relevanceScore}</span>
+                    </h6>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-8">
+                            <p class="card-text small">${result.content.substring(0, 200)}${result.content.length > 200 ? '...' : ''}</p>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="weather-stats">
+                                <p class="mb-1"><i class="fas fa-thermometer-half text-danger"></i> ${temperature}</p>
+                                <p class="mb-1"><i class="fas fa-tint text-primary"></i> ${humidity}</p>
+                                <p class="mb-1"><i class="fas fa-wind text-info"></i> ${wind}</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        `;
+    });
+    
+    contentDiv.innerHTML = html;
+    resultsDiv.style.display = 'block';
+    
+    // Scroll to results
+    resultsDiv.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+// Display pattern search error
+function displayPatternSearchError(error) {
+    const resultsDiv = document.getElementById('patternSearchResults');
+    const contentDiv = document.getElementById('patternResultsContent');
+    
+    contentDiv.innerHTML = `
+        <div class="alert alert-danger">
+            <i class="fas fa-exclamation-triangle me-2"></i>
+            <strong>Pattern Search Error:</strong> ${error}
+        </div>
+    `;
+    
+    resultsDiv.style.display = 'block';
+}
+
+// Allow Enter key for pattern search
+document.getElementById('patternQuery').addEventListener('keypress', function(e) {
+    if (e.key === 'Enter') {
+        searchWeatherPatterns();
+    }
+});
+</script>
+{% endblock %}

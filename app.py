@@ -12,6 +12,12 @@ from datetime import timedelta
 # Load environment variables
 load_dotenv()
 
+# Also try loading from backend directory
+import os
+backend_env_path = os.path.join(os.path.dirname(__file__), 'backend', '.env')
+if os.path.exists(backend_env_path):
+    load_dotenv(backend_env_path)
+
 def create_app():
     """Application factory pattern"""
     app = Flask(__name__, 

@@ -143,6 +143,19 @@ def dashboard():
                          total_users=total_users,
                          active_sessions=active_sessions)
 
+@auth_bp.route('/weather')
+def weather_dashboard():
+    """Weather prediction dashboard"""
+    if not is_logged_in():
+        return redirect(url_for('auth.login'))
+    
+    current_user = get_current_user()
+    if not current_user:
+        session.clear()
+        return redirect(url_for('auth.login'))
+    
+    return render_template('weather_dashboard.html', current_user=current_user)
+
 @auth_bp.route('/profile', methods=['GET', 'POST'])
 def profile():
     """User profile page"""

@@ -87,3 +87,12 @@ SETUP_COMPLETE.md
 setup_database.py
 start_backend.ps1
 start_backend.sh
+start_app.bat
+start_app.ps1
+test_weather_service.py
+test_lm_studio.py
+WEATHER_AI_SETUP.md
+data/Generated_electricity_load_japan_past365days_reduced.csv
+data/Generated_electricity_load_japan_past365days_much_more_reduced.csv
+data/Generated_electricity_load_japan_past365days.csv
+backend/weather_service_simple.py

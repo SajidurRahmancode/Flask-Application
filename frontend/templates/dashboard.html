@@ -183,20 +183,93 @@
             </div>
         </div>
 
-        <!-- Weather AI Card -->
-        <div class="card mt-3" style="background: linear-gradient(135deg, #74b9ff 0%, #0984e3 100%); color: white;">
+        <!-- LangGraph Multi-Agent Weather AI Card -->
+        <div class="card mt-3" style="background: linear-gradient(135deg, #6c5ce7 0%, #a29bfe 50%, #74b9ff 100%); color: white; border: none; box-shadow: 0 10px 30px rgba(108, 92, 231, 0.3);">
             <div class="card-header border-0" style="background: transparent;">
-                <h5 class="mb-0 text-white">
-                    <i class="fas fa-cloud-sun me-2"></i>AI Weather Prediction
-                </h5>
+                <div class="d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0 text-white fw-bold">
+                        <i class="fas fa-network-wired me-2"></i>LangGraph Multi-Agent AI
+                    </h5>
+                    <span class="badge bg-light text-dark">
+                        <i class="fas fa-star me-1"></i>Featured
+                    </span>
+                </div>
             </div>
             <div class="card-body">
-                <p class="card-text mb-3">
-                    Get advanced weather forecasts powered by LangChain and Gemini AI using Japan's electricity data.
+                <div class="mb-3">
+                    <h6 class="text-white mb-2">
+                        <i class="fas fa-users me-2"></i>5 Specialized AI Agents
+                    </h6>
+                    <div class="row text-center">
+                        <div class="col-4">
+                            <div class="mb-2">
+                                <i class="fas fa-database" style="font-size: 1.2rem; opacity: 0.8;"></i>
+                                <div class="small mt-1">Data</div>
+                            </div>
+                        </div>
+                        <div class="col-4">
+                            <div class="mb-2">
+                                <i class="fas fa-chart-line" style="font-size: 1.2rem; opacity: 0.8;"></i>
+                                <div class="small mt-1">Analysis</div>
+                            </div>
+                        </div>
+                        <div class="col-4">
+                            <div class="mb-2">
+                                <i class="fas fa-cloud" style="font-size: 1.2rem; opacity: 0.8;"></i>
+                                <div class="small mt-1">Science</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="row text-center">
+                        <div class="col-6">
+                            <div class="mb-2">
+                                <i class="fas fa-star" style="font-size: 1.2rem; opacity: 0.8;"></i>
+                                <div class="small mt-1">Confidence</div>
+                            </div>
+                        </div>
+                        <div class="col-6">
+                            <div class="mb-2">
+                                <i class="fas fa-check-circle" style="font-size: 1.2rem; opacity: 0.8;"></i>
+                                <div class="small mt-1">Quality</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <p class="card-text mb-3" style="opacity: 0.9;">
+                    Experience the power of <strong>multi-agent collaboration</strong> where 5 specialized AI agents work together to deliver the most accurate weather predictions possible.
                 </p>
-                <a href="{{ url_for('auth.weather_dashboard') }}" class="btn btn-light btn-sm">
-                    <i class="fas fa-brain me-1"></i>Launch Weather AI
-                </a>
+                
+                <div class="d-flex gap-2">
+                    <a href="{{ url_for('auth.weather_dashboard') }}" class="btn btn-light flex-fill fw-bold" style="color: #6c5ce7;">
+                        <i class="fas fa-rocket me-1"></i>Launch System
+                    </a>
+                    <button class="btn btn-outline-light" onclick="checkLangGraphQuickStatus()" title="Quick Status Check">
+                        <i class="fas fa-heartbeat"></i>
+                    </button>
+                </div>
+                
+                <div id="quickStatusIndicator" class="mt-2" style="display: none;">
+                    <small class="d-flex align-items-center">
+                        <span class="badge bg-light text-dark me-2" id="agentCount">5 Agents</span>
+                        <span class="badge bg-success" id="systemStatus">Online</span>
+                    </small>
+                </div>
+            </div>
+        </div>
+
+        <!-- Traditional Weather AI Card (Secondary) -->
+        <div class="card mt-3" style="background: linear-gradient(135deg, #74b9ff 0%, #0984e3 100%); color: white;">
+            <div class="card-header border-0" style="background: transparent;">
+                <h6 class="mb-0 text-white">
+                    <i class="fas fa-cloud-sun me-2"></i>Traditional AI Weather
+                </h6>
+            </div>
+            <div class="card-body">
+                <p class="card-text mb-3 small" style="opacity: 0.9;">
+                    Single-agent weather forecasts using Japan's electricity data with LangChain and Gemini AI.
+                </p>
+                <small class="text-white-50 d-block mb-2">Also available: RAG enhanced, Local LLM, Hybrid methods</small>
             </div>
         </div>
     </div>
@@ -329,5 +402,37 @@ document.getElementById('editUserForm').addEventListener('submit', function() {
     submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Updating...';
     submitBtn.disabled = true;
 });
+
+// Quick LangGraph status check for dashboard
+async function checkLangGraphQuickStatus() {
+    const indicator = document.getElementById('quickStatusIndicator');
+    const agentCount = document.getElementById('agentCount');
+    const systemStatus = document.getElementById('systemStatus');
+    
+    // Show loading
+    indicator.style.display = 'block';
+    systemStatus.textContent = 'Checking...';
+    systemStatus.className = 'badge bg-warning';
+    
+    try {
+        const response = await fetch('/api/weather/langgraph-status');
+        const data = await response.json();
+        
+        if (data.langgraph_available) {
+            agentCount.textContent = `${data.agent_count || 5} Agents`;
+            systemStatus.textContent = 'Online';
+            systemStatus.className = 'badge bg-success';
+        } else {
+            agentCount.textContent = 'System';
+            systemStatus.textContent = 'Offline';
+            systemStatus.className = 'badge bg-danger';
+        }
+    } catch (error) {
+        console.error('Status check failed:', error);
+        agentCount.textContent = 'System';
+        systemStatus.textContent = 'Error';
+        systemStatus.className = 'badge bg-danger';
+    }
+}
 </script>
 {% endblock %}

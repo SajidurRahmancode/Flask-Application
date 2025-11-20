@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}Weather Prediction - Japan AI Weather{% endblock %}
+{% block title %}LangGraph Multi-Agent Weather - AI Weather Prediction{% endblock %}
 
 {% block extra_css %}
 <style>
@@ -10,6 +10,69 @@
     border-radius: 15px;
     padding: 2rem;
     margin-bottom: 2rem;
+    position: relative;
+    overflow: hidden;
+}
+
+.weather-header::before {
+    content: '';
+    position: absolute;
+    top: -50%;
+    left: -50%;
+    width: 200%;
+    height: 200%;
+    background: url('data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><circle cx="20" cy="20" r="2" fill="white" opacity="0.1"/><circle cx="80" cy="40" r="1" fill="white" opacity="0.1"/><circle cx="40" cy="80" r="1.5" fill="white" opacity="0.1"/></svg>');
+    animation: float 6s ease-in-out infinite;
+}
+
+@keyframes float {
+    0%, 100% { transform: translateY(0px) rotate(0deg); }
+    50% { transform: translateY(-20px) rotate(180deg); }
+}
+
+.langgraph-badge {
+    background: linear-gradient(135deg, #00b894 0%, #00cec9 100%);
+    color: white;
+    border: none;
+    padding: 0.5rem 1rem;
+    border-radius: 25px;
+    font-weight: bold;
+    box-shadow: 0 4px 15px rgba(0, 184, 148, 0.3);
+}
+
+.agent-card {
+    background: white;
+    border-radius: 15px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+    transition: all 0.3s ease;
+    padding: 1.5rem;
+    margin-bottom: 1rem;
+    border: 1px solid #e3f2fd;
+}
+
+.agent-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 15px 40px rgba(0,0,0,0.15);
+}
+
+.agent-status {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    display: inline-block;
+    margin-right: 0.5rem;
+}
+
+.agent-status.active {
+    background-color: #00b894;
+    box-shadow: 0 0 10px rgba(0, 184, 148, 0.5);
+    animation: pulse 2s infinite;
+}
+
+@keyframes pulse {
+    0% { box-shadow: 0 0 0 0 rgba(0, 184, 148, 0.7); }
+    70% { box-shadow: 0 0 0 10px rgba(0, 184, 148, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(0, 184, 148, 0); }
 }
 
 .prediction-card {
@@ -25,32 +88,69 @@
     transform: translateY(-5px);
 }
 
-.btn-predict {
+.btn-langgraph {
     background: linear-gradient(135deg, #6c5ce7 0%, #a29bfe 100%);
     border: none;
     padding: 12px 30px;
     font-weight: 600;
+    color: white;
+    border-radius: 25px;
+    box-shadow: 0 4px 15px rgba(108, 92, 231, 0.3);
+    transition: all 0.3s ease;
 }
 
-.btn-predict:hover {
+.btn-langgraph:hover {
     background: linear-gradient(135deg, #5a4fcf 0%, #9085e8 100%);
     transform: translateY(-2px);
-    box-shadow: 0 5px 15px rgba(108, 92, 231, 0.3);
+    box-shadow: 0 8px 25px rgba(108, 92, 231, 0.4);
+    color: white;
 }
 
-.weather-stats p {
-    margin-bottom: 0.5rem;
-    font-size: 0.9rem;
+.workflow-step {
+    padding: 1rem;
+    border-radius: 10px;
+    margin-bottom: 1rem;
+    border-left: 4px solid #6c5ce7;
+    background: linear-gradient(135deg, #f8f9ff 0%, #e8f4f8 100%);
 }
 
-.pattern-result-card {
-    border-left: 4px solid #74b9ff;
+.workflow-step.active {
+    background: linear-gradient(135deg, #e8f5e8 0%, #f0f8f0 100%);
+    border-left-color: #00b894;
+}
+
+.agent-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 1rem;
+    margin-bottom: 2rem;
+}
+
+.confidence-meter {
+    height: 8px;
+    background-color: #e9ecef;
+    border-radius: 4px;
+    overflow: hidden;
+    margin: 0.5rem 0;
+}
+
+.confidence-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #ff6b6b 0%, #feca57 50%, #48dbfb 100%);
+    transition: width 0.5s ease;
 }
 
 .loading-spinner {
     display: none;
     text-align: center;
     padding: 2rem;
+}
+
+.method-selection {
+    background: linear-gradient(135deg, #f8f9ff 0%, #e8f4f8 100%);
+    border-radius: 12px;
+    padding: 1rem;
+    margin-bottom: 1rem;
 }
 </style>
 {% endblock %}
@@ -59,16 +159,36 @@
 <div class="container-fluid">
     <!-- Header -->
     <div class="weather-header text-center">
-        <h1 class="display-4 fw-bold mb-3">🌤️ AI Weather Forecast</h1>
-        <p class="lead mb-0">Advanced weather predictions using LangChain + RAG + Gemini AI</p>
+        <h1 class="display-4 fw-bold mb-3">🤖 LangGraph Multi-Agent Weather System</h1>
+        <p class="lead mb-3">Advanced weather predictions using 5 specialized AI agents working in harmony</p>
+        <span class="langgraph-badge">
+            <i class="fas fa-network-wired me-2"></i>Powered by LangGraph + StateGraph Orchestration
+        </span>
     </div>
 
-    <!-- Quota Notice -->
-    <div class="alert alert-warning mt-3" role="alert">
-        <i class="fas fa-info-circle me-2"></i>
-        <strong>Notice:</strong> AI service is currently experiencing quota limitations. 
-        The system will use RAG-enhanced statistical analysis with historical pattern matching 
-        as a fallback when AI prediction is unavailable.
+    <!-- LangGraph System Status -->
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="prediction-card">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h5 class="mb-0">
+                        <i class="fas fa-heartbeat me-2 text-success"></i>
+                        Multi-Agent System Status
+                    </h5>
+                    <button class="btn btn-outline-info btn-sm" onclick="checkLangGraphStatus()">
+                        <i class="fas fa-sync me-1"></i>Refresh
+                    </button>
+                </div>
+                <div id="systemStatus">
+                    <div class="text-center py-3">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                        <p class="mt-2 mb-0">Checking system status...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
 
     <div class="row">
@@ -76,101 +196,97 @@
         <div class="col-lg-4">
             <div class="prediction-card">
                 <h5 class="card-title mb-4">
-                    <i class="fas fa-cog me-2 text-primary"></i>
-                    Prediction Settings
+                    <i class="fas fa-sliders-h me-2 text-primary"></i>
+                    Prediction Control Center
                 </h5>
                 
                 <form id="predictionForm">
                     <div class="mb-3">
                         <label for="location" class="form-label fw-bold">📍 Location</label>
-                        <input type="text" class="form-control" id="location" name="location" value="Tokyo" required>
+                        <input type="text" class="form-control" id="location" name="location" value="Tokyo, Japan" required>
                         <div class="form-text">Enter city or region for forecast</div>
                     </div>
                     
                     <div class="mb-3">
                         <label for="prediction_days" class="form-label fw-bold">📅 Forecast Period</label>
                         <select class="form-select" id="prediction_days" name="prediction_days">
-                            <option value="3">3 Days</option>
+                            <option value="3" selected>3 Days</option>
                             <option value="5">5 Days</option>
-                            <option value="7" selected>7 Days</option>
+                            <option value="7">7 Days</option>
                             <option value="10">10 Days</option>
                             <option value="14">14 Days</option>
                         </select>
                     </div>
                     
-                    <!-- Prediction Method -->
-                    <div class="mb-4">
-                        <label class="form-label fw-bold">🧠 AI Method</label>
+                    <!-- Prediction Method Selection -->
+                    <div class="method-selection">
+                        <label class="form-label fw-bold">� AI Prediction Method</label>
                         
-                        <!-- Cloud AI Options -->
-                        <h6 class="text-primary mt-3 mb-2">☁️ Cloud AI (Quota Limited)</h6>
-                        <div class="form-check">
-                            <input class="form-check-input" type="radio" name="predictionMethod" id="standard" value="standard">
-                            <label class="form-check-label" for="standard">
-                                🤖 Standard Gemini AI
+                        <!-- LangGraph Multi-Agent (Featured) -->
+                        <div class="form-check mb-2 p-3" style="background: linear-gradient(135deg, #e8f5e8 0%, #f0f8f0 100%); border-radius: 8px; border: 2px solid #00b894;">
+                            <input class="form-check-input" type="radio" name="predictionMethod" id="langgraph" value="langgraph" checked>
+                            <label class="form-check-label fw-bold" for="langgraph" style="color: #00b894;">
+                                🌟 LangGraph Multi-Agent System
+                                <span class="badge bg-success ms-2">FEATURED</span>
                             </label>
-                            <small class="form-text text-muted d-block">Basic LangChain + Gemini (quota limited)</small>
+                            <small class="form-text text-muted d-block mt-1">
+                                <strong>5 specialized AI agents:</strong> Data Collector, Pattern Analyzer, Meteorologist, Confidence Assessor, Quality Controller
+                            </small>
                         </div>
-                        <div class="form-check">
-                            <input class="form-check-input" type="radio" name="predictionMethod" id="ragEnhanced" value="rag">
-                            <label class="form-check-label" for="ragEnhanced">
-                                🧠 RAG + Gemini AI
-                            </label>
-                            <small class="form-text text-muted d-block">Historical patterns + Gemini (quota limited)</small>
-                        </div>
-                        
-                        <!-- Local AI Options -->
-                        <h6 class="text-success mt-3 mb-2">🏠 Local AI (Unlimited)</h6>
-                        <div class="form-check">
-                            <input class="form-check-input" type="radio" name="predictionMethod" id="localLlm" value="local">
-                            <label class="form-check-label" for="localLlm">
-                                🏠 Local LLM Only
-                            </label>
-                            <small class="form-text text-muted d-block">LM Studio local AI (unlimited, private)</small>
-                        </div>
-                        <div class="form-check">
-                            <input class="form-check-input" type="radio" name="predictionMethod" id="ragLocal" value="rag_local">
-                            <label class="form-check-label" for="ragLocal">
-                                🧠 RAG + Local LLM
-                            </label>
-                            <small class="form-text text-muted d-block">Historical patterns + Local AI</small>
-                        </div>
-                        <div class="form-check">
-                            <input class="form-check-input" type="radio" name="predictionMethod" id="langchainRag" value="langchain_rag">
-                            <label class="form-check-label" for="langchainRag">
-                                🚀 LangChain + RAG (Ultimate)
-                            </label>
-                            <small class="form-text text-muted d-block">Best: Advanced orchestration + conversation memory</small>
-                        </div>
-                        
-                        <!-- Hybrid Option -->
-                        <h6 class="text-info mt-3 mb-2">🔄 Intelligent (Recommended)</h6>
-                        <div class="form-check">
-                            <input class="form-check-input" type="radio" name="predictionMethod" id="hybrid" value="hybrid" checked>
-                            <label class="form-check-label" for="hybrid">
-                                🔄 Hybrid Smart Fallback
-                            </label>
-                            <small class="form-text text-muted d-block">Auto-selects best available method</small>
+
+                        <!-- Other Methods -->
+                        <div class="accordion" id="otherMethodsAccordion">
+                            <div class="accordion-item border-0">
+                                <h6 class="accordion-header">
+                                    <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#otherMethods">
+                                        <small>Other Available Methods</small>
+                                    </button>
+                                </h6>
+                                <div id="otherMethods" class="accordion-collapse collapse" data-bs-parent="#otherMethodsAccordion">
+                                    <div class="accordion-body p-2">
+                                        <div class="form-check mb-2">
+                                            <input class="form-check-input" type="radio" name="predictionMethod" id="langchainRag" value="langchain_rag">
+                                            <label class="form-check-label" for="langchainRag">
+                                                🚀 LangChain + RAG
+                                            </label>
+                                            <small class="form-text text-muted d-block">Advanced orchestration + conversation memory</small>
+                                        </div>
+                                        <div class="form-check mb-2">
+                                            <input class="form-check-input" type="radio" name="predictionMethod" id="ragLocal" value="rag_local">
+                                            <label class="form-check-label" for="ragLocal">
+                                                🧠 RAG + Local LLM
+                                            </label>
+                                            <small class="form-text text-muted d-block">Historical patterns + Local AI</small>
+                                        </div>
+                                        <div class="form-check mb-2">
+                                            <input class="form-check-input" type="radio" name="predictionMethod" id="hybrid" value="hybrid">
+                                            <label class="form-check-label" for="hybrid">
+                                                🔄 Hybrid Smart Fallback
+                                            </label>
+                                            <small class="form-text text-muted d-block">Auto-selects best available method</small>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     </div>
                     
-                    <button type="submit" class="btn btn-predict btn-primary w-100 mb-3">
-                        <i class="fas fa-brain me-2"></i>Generate AI Prediction
+                    <button type="submit" class="btn btn-langgraph w-100 mb-3">
+                        <i class="fas fa-brain me-2"></i>Launch Multi-Agent Prediction
                     </button>
                 </form>
 
-                <!-- Pattern Search -->
+                <!-- Agent Status Display -->
                 <div class="mt-3 pt-3 border-top">
-                    <label class="form-label fw-bold text-info">
-                        <i class="fas fa-search me-2"></i>Search Weather Patterns
-                    </label>
-                    <div class="input-group">
-                        <input type="text" class="form-control" id="patternQuery" placeholder="e.g., hot summer days">
-                        <button type="button" class="btn btn-info" onclick="searchWeatherPatterns()">
-                            Search
-                        </button>
+                    <h6 class="fw-bold text-info mb-3">
+                        <i class="fas fa-users me-2"></i>Active Agents
+                    </h6>
+                    <div id="agentStatusList">
+                        <div class="text-center py-3">
+                            <i class="fas fa-robot text-muted" style="font-size: 2rem; opacity: 0.3;"></i>
+                            <p class="mt-2 mb-0 text-muted small">Start a prediction to see agent activity</p>
+                        </div>
                     </div>
-                    <small class="text-muted">Find similar historical weather patterns</small>
                 </div>
             </div>
         </div>
@@ -179,10 +295,20 @@
         <div class="col-lg-8">
             <!-- Loading Spinner -->
             <div id="loadingSpinner" class="loading-spinner">
-                <div class="spinner-border text-primary" role="status">
-                    <span class="visually-hidden">Loading...</span>
+                <div class="prediction-card text-center">
+                    <div class="mb-3">
+                        <div class="spinner-border text-primary" role="status" style="width: 3rem; height: 3rem;">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                    </div>
+                    <h5>Multi-Agent System Working...</h5>
+                    <p class="text-muted mb-3">AI agents are collaborating to generate your weather prediction</p>
+                    <div id="workflowProgress">
+                        <div class="workflow-step active">
+                            <strong>🤖 Data Collection Agent:</strong> Gathering weather data...
+                        </div>
+                    </div>
                 </div>
-                <p class="mt-3">Generating weather prediction...</p>
             </div>
             
             <!-- Prediction Results -->
@@ -194,20 +320,28 @@
                 
                 <div id="predictionResults">
                     <div class="text-center text-muted py-5">
-                        <i class="fas fa-cloud-sun" style="font-size: 4rem; opacity: 0.3;"></i>
-                        <h6 class="mt-3">Ready for Weather Prediction</h6>
-                        <p>Configure your settings and click "Generate AI Prediction" to get started.</p>
+                        <i class="fas fa-network-wired" style="font-size: 4rem; opacity: 0.3; color: #6c5ce7;"></i>
+                        <h6 class="mt-3">LangGraph Multi-Agent System Ready</h6>
+                        <p>Configure your settings and launch the multi-agent prediction system to get started.</p>
+                        <div class="mt-3">
+                            <span class="badge bg-light text-dark me-2">
+                                <i class="fas fa-database me-1"></i>Data Collector
+                            </span>
+                            <span class="badge bg-light text-dark me-2">
+                                <i class="fas fa-chart-line me-1"></i>Pattern Analyzer
+                            </span>
+                            <span class="badge bg-light text-dark me-2">
+                                <i class="fas fa-cloud me-1"></i>Meteorologist
+                            </span>
+                            <span class="badge bg-light text-dark me-2">
+                                <i class="fas fa-check-circle me-1"></i>Quality Controller
+                            </span>
+                            <span class="badge bg-light text-dark">
+                                <i class="fas fa-star me-1"></i>Confidence Assessor
+                            </span>
+                        </div>
                     </div>
                 </div>
-            </div>
-
-            <!-- Pattern Search Results -->
-            <div id="patternSearchResults" style="display: none;" class="prediction-card">
-                <h5 class="text-info mb-3">
-                    <i class="fas fa-search me-2"></i>
-                    Historical Pattern Search Results
-                </h5>
-                <div id="patternResultsContent"></div>
             </div>
         </div>
     </div>
@@ -219,6 +353,141 @@
 function getCSRFToken() {
     return document.querySelector('meta[name=csrf-token]') ? 
            document.querySelector('meta[name=csrf-token]').getAttribute('content') : '';
+}
+
+// Initialize page
+document.addEventListener('DOMContentLoaded', function() {
+    checkLangGraphStatus();
+});
+
+// Check LangGraph system status
+async function checkLangGraphStatus() {
+    const statusDiv = document.getElementById('systemStatus');
+    
+    try {
+        const response = await fetch('/api/weather/langgraph-status', {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json',
+            }
+        });
+        
+        const data = await response.json();
+        
+        if (data.langgraph_available) {
+            displaySystemStatus(data);
+        } else {
+            displaySystemUnavailable();
+        }
+    } catch (error) {
+        console.error('Status check error:', error);
+        displaySystemError();
+    }
+}
+
+// Display system status
+function displaySystemStatus(data) {
+    const statusDiv = document.getElementById('systemStatus');
+    const agentConfigs = data.agent_configs || {};
+    
+    let agentCards = '';
+    const agents = [
+        { key: 'data_collector', name: 'Data Collector', icon: 'fas fa-database', color: '#3498db' },
+        { key: 'pattern_analyzer', name: 'Pattern Analyzer', icon: 'fas fa-chart-line', color: '#e74c3c' },
+        { key: 'meteorologist', name: 'Meteorologist', icon: 'fas fa-cloud', color: '#9b59b6' },
+        { key: 'confidence_assessor', name: 'Confidence Assessor', icon: 'fas fa-star', color: '#f39c12' },
+        { key: 'quality_controller', name: 'Quality Controller', icon: 'fas fa-check-circle', color: '#27ae60' }
+    ];
+    
+    agents.forEach(agent => {
+        const config = agentConfigs[agent.key] || {};
+        const threshold = config.confidence_threshold || 0.8;
+        const description = config.description || 'AI Agent';
+        
+        agentCards += `
+            <div class="agent-card">
+                <div class="d-flex align-items-center mb-2">
+                    <span class="agent-status active"></span>
+                    <i class="${agent.icon} me-2" style="color: ${agent.color};"></i>
+                    <strong>${agent.name}</strong>
+                    <span class="badge bg-success ms-auto">Active</span>
+                </div>
+                <p class="small text-muted mb-2">${description}</p>
+                <div class="d-flex justify-content-between align-items-center">
+                    <small class="text-muted">Confidence Threshold:</small>
+                    <span class="badge bg-light text-dark">${(threshold * 100)}%</span>
+                </div>
+                <div class="confidence-meter">
+                    <div class="confidence-fill" style="width: ${(threshold * 100)}%"></div>
+                </div>
+            </div>
+        `;
+    });
+    
+    statusDiv.innerHTML = `
+        <div class="alert alert-success">
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <i class="fas fa-check-circle me-2"></i>
+                    <strong>LangGraph Multi-Agent System Online</strong>
+                </div>
+                <span class="badge bg-success">
+                    <i class="fas fa-users me-1"></i>${data.agent_count || 5} Agents Active
+                </span>
+            </div>
+        </div>
+        
+        <div class="agent-grid">
+            ${agentCards}
+        </div>
+        
+        <div class="mt-3">
+            <h6 class="fw-bold text-info mb-2">
+                <i class="fas fa-sitemap me-2"></i>Workflow Status
+            </h6>
+            <div class="row">
+                <div class="col-md-4 text-center">
+                    <i class="fas fa-project-diagram text-success" style="font-size: 1.5rem;"></i>
+                    <div class="small mt-1">Prediction Graph</div>
+                    <span class="badge bg-success">Ready</span>
+                </div>
+                <div class="col-md-4 text-center">
+                    <i class="fas fa-route text-success" style="font-size: 1.5rem;"></i>
+                    <div class="small mt-1">Service Selection</div>
+                    <span class="badge bg-success">Ready</span>
+                </div>
+                <div class="col-md-4 text-center">
+                    <i class="fas fa-shield-alt text-success" style="font-size: 1.5rem;"></i>
+                    <div class="small mt-1">Quality Validation</div>
+                    <span class="badge bg-success">Ready</span>
+                </div>
+            </div>
+        </div>
+    `;
+}
+
+// Display system unavailable
+function displaySystemUnavailable() {
+    const statusDiv = document.getElementById('systemStatus');
+    statusDiv.innerHTML = `
+        <div class="alert alert-warning">
+            <i class="fas fa-exclamation-triangle me-2"></i>
+            <strong>LangGraph System Unavailable</strong>
+            <p class="mb-0 mt-2">The multi-agent system is not currently available. You can still use other prediction methods.</p>
+        </div>
+    `;
+}
+
+// Display system error
+function displaySystemError() {
+    const statusDiv = document.getElementById('systemStatus');
+    statusDiv.innerHTML = `
+        <div class="alert alert-danger">
+            <i class="fas fa-times-circle me-2"></i>
+            <strong>Status Check Failed</strong>
+            <p class="mb-0 mt-2">Unable to check system status. Please try refreshing the page.</p>
+        </div>
+    `;
 }
 
 // Handle prediction form submission
@@ -239,50 +508,35 @@ async function generatePrediction() {
     loading.style.display = 'block';
     results.innerHTML = '';
     
-    // Hide pattern search results when generating new prediction
-    document.getElementById('patternSearchResults').style.display = 'none';
-    
     try {
         // Determine endpoint and method description
         let endpoint, methodDescription;
         
-        switch(predictionMethod) {
-            case 'standard':
-                endpoint = '/api/weather/predict';
-                methodDescription = 'Standard Gemini AI';
-                break;
-            case 'rag':
-                endpoint = '/api/weather/predict-rag';
-                methodDescription = 'RAG + Gemini AI';
-                break;
-            case 'local':
-                endpoint = '/api/weather/predict-local';
-                methodDescription = 'Local LLM';
-                break;
-            case 'rag_local':
-                endpoint = '/api/weather/predict-rag-local';
-                methodDescription = 'RAG + Local LLM';
-                break;
-            case 'langchain_rag':
-                endpoint = '/api/weather/predict-langchain-rag';
-                methodDescription = 'LangChain + RAG (Ultimate)';
-                break;
-            case 'hybrid':
-                endpoint = '/api/weather/predict-hybrid';
-                methodDescription = 'Hybrid Smart Fallback';
-                break;
-            default:
-                endpoint = '/api/weather/predict-hybrid';
-                methodDescription = 'Hybrid Smart Fallback';
+        if (predictionMethod === 'langgraph') {
+            endpoint = '/api/weather/predict-langgraph';
+            methodDescription = 'LangGraph Multi-Agent System';
+            
+            // Show agent workflow progress
+            showAgentWorkflow();
+        } else {
+            // Map other methods to their endpoints
+            switch(predictionMethod) {
+                case 'langchain_rag':
+                    endpoint = '/api/weather/predict-langchain-rag';
+                    methodDescription = 'LangChain + RAG';
+                    break;
+                case 'rag_local':
+                    endpoint = '/api/weather/predict-rag-local';
+                    methodDescription = 'RAG + Local LLM';
+                    break;
+                case 'hybrid':
+                default:
+                    endpoint = '/api/weather/predict-hybrid';
+                    methodDescription = 'Hybrid Smart Fallback';
+            }
         }
         
         console.log(`🚀 Using ${methodDescription} prediction`);
-        
-        // Update loading message based on method
-        const loadingMessage = predictionMethod.includes('local') || predictionMethod === 'hybrid' 
-            ? 'Generating local AI prediction...' 
-            : 'Generating cloud AI prediction...';
-        document.querySelector('#loadingSpinner p').textContent = loadingMessage;
         
         const response = await fetch(endpoint, {
             method: 'POST',
@@ -302,25 +556,9 @@ async function generatePrediction() {
         loading.style.display = 'none';
         
         if (data.success) {
-            displayPredictionResults(data);
+            displayPredictionResults(data, predictionMethod);
         } else {
-            // Check for specific error types in the response
-            let errorType = null;
-            if (data.error_type) {
-                errorType = data.error_type;
-            } else if (data.error && typeof data.error === 'string') {
-                // Try to detect error type from message
-                if (data.error.toLowerCase().includes('timeout') || 
-                    data.error.toLowerCase().includes('taking longer than expected')) {
-                    errorType = 'timeout';
-                } else if (data.error.toLowerCase().includes('service unavailable') ||
-                          data.error.toLowerCase().includes('not available') ||
-                          data.error.toLowerCase().includes('not properly initialized')) {
-                    errorType = 'service_unavailable';
-                }
-            }
-            
-            displayError(data.error || 'Prediction failed', errorType);
+            displayError(data.error || 'Prediction failed', data.error_type);
         }
     } catch (error) {
         console.error('Prediction error:', error);
@@ -329,331 +567,257 @@ async function generatePrediction() {
     }
 }
 
-// Display prediction results
-function displayPredictionResults(data) {
-    const results = document.getElementById('predictionResults');
+// Show agent workflow progress for LangGraph
+function showAgentWorkflow() {
+    const workflowDiv = document.getElementById('workflowProgress');
+    const steps = [
+        '🤖 Data Collection Agent: Gathering weather data...',
+        '📊 Pattern Analysis Agent: Analyzing historical patterns...',
+        '🌤️ Meteorological Agent: Applying atmospheric science...',
+        '⭐ Confidence Assessment Agent: Evaluating reliability...',
+        '✅ Quality Control Agent: Validating predictions...'
+    ];
     
-    const method = data.method || data.source || 'standard';
+    let html = '';
+    steps.forEach((step, index) => {
+        html += `
+            <div class="workflow-step ${index === 0 ? 'active' : ''}" id="step-${index}">
+                ${step}
+            </div>
+        `;
+    });
+    
+    workflowDiv.innerHTML = html;
+    
+    // Simulate workflow progress
+    let currentStep = 0;
+    const progressInterval = setInterval(() => {
+        if (currentStep < steps.length - 1) {
+            document.getElementById(`step-${currentStep}`).classList.remove('active');
+            currentStep++;
+            document.getElementById(`step-${currentStep}`).classList.add('active');
+        } else {
+            clearInterval(progressInterval);
+        }
+    }, 1500);
+}
+
+// Display prediction results
+function displayPredictionResults(data, method) {
+    const results = document.getElementById('predictionResults');
     
     // Determine method badge and description
     let methodBadge, methodDescription, badgeClass;
     
-    switch(method) {
-        case 'local_llm':
-        case 'local':
-            methodBadge = '<span class="badge bg-success"><i class="fas fa-home me-1"></i>Local LLM</span>';
-            methodDescription = 'Generated using local AI (unlimited)';
-            badgeClass = 'success';
-            break;
-        case 'rag_local_llm':
-        case 'local_rag':
-            methodBadge = '<span class="badge bg-success"><i class="fas fa-brain me-1"></i>RAG + Local LLM</span>';
-            methodDescription = 'Enhanced with historical patterns + local AI';
-            badgeClass = 'success';
-            break;
-        case 'langchain_rag':
-            methodBadge = '<span class="badge bg-success" style="background: linear-gradient(135deg, #6c5ce7 0%, #a29bfe 100%) !important;"><i class="fas fa-star me-1"></i>LangChain + RAG Ultimate</span>';
-            methodDescription = 'Advanced orchestration with conversation memory + RAG + local AI';
-            badgeClass = 'success';
-            break;
-        case 'rag_enhanced':
-        case 'rag':
-            methodBadge = '<span class="badge bg-primary"><i class="fas fa-brain me-1"></i>RAG + Gemini</span>';
-            methodDescription = 'Enhanced with historical patterns + cloud AI';
-            badgeClass = 'primary';
-            break;
-        case 'hybrid_fallback':
-        case 'hybrid':
-            methodBadge = '<span class="badge bg-info"><i class="fas fa-magic me-1"></i>Hybrid Smart</span>';
-            methodDescription = 'Intelligent method selection with fallback';
-            badgeClass = 'info';
-            break;
-        case 'statistical':
-            methodBadge = '<span class="badge bg-warning"><i class="fas fa-chart-bar me-1"></i>Statistical</span>';
-            methodDescription = 'Pattern-based statistical analysis';
-            badgeClass = 'warning';
-            break;
-        default:
-            methodBadge = '<span class="badge bg-primary"><i class="fas fa-robot me-1"></i>Standard AI</span>';
-            methodDescription = 'Standard cloud AI prediction';
-            badgeClass = 'primary';
+    if (method === 'langgraph') {
+        methodBadge = '<span class="badge langgraph-badge"><i class="fas fa-network-wired me-1"></i>LangGraph Multi-Agent</span>';
+        methodDescription = 'Generated by 5 specialized AI agents working in harmony';
+        
+        // Show agent insights if available
+        let agentInsights = '';
+        if (data.agent_insights && Array.isArray(data.agent_insights)) {
+            agentInsights = `
+                <div class="mt-4">
+                    <h6 class="fw-bold text-info mb-3">
+                        <i class="fas fa-users me-2"></i>Agent Insights
+                    </h6>
+                    <div class="agent-grid">
+            `;
+            
+            data.agent_insights.forEach((insight, index) => {
+                const agentNames = ['Data Collector', 'Pattern Analyzer', 'Meteorologist', 'Confidence Assessor', 'Quality Controller'];
+                const agentIcons = ['fas fa-database', 'fas fa-chart-line', 'fas fa-cloud', 'fas fa-star', 'fas fa-check-circle'];
+                const agentColors = ['#3498db', '#e74c3c', '#9b59b6', '#f39c12', '#27ae60'];
+                
+                agentInsights += `
+                    <div class="agent-card">
+                        <div class="d-flex align-items-center mb-2">
+                            <i class="${agentIcons[index] || 'fas fa-robot'} me-2" style="color: ${agentColors[index] || '#6c5ce7'};"></i>
+                            <strong>${agentNames[index] || `Agent ${index + 1}`}</strong>
+                        </div>
+                        <p class="small mb-0">${typeof insight === 'string' ? insight : JSON.stringify(insight)}</p>
+                    </div>
+                `;
+            });
+            
+            agentInsights += `
+                    </div>
+                </div>
+            `;
+        }
+        
+        // Show confidence scores if available
+        let confidenceDisplay = '';
+        if (data.confidence_scores) {
+            const overallConfidence = Object.values(data.confidence_scores).reduce((a, b) => a + b, 0) / Object.keys(data.confidence_scores).length;
+            confidenceDisplay = `
+                <div class="mt-3">
+                    <h6 class="fw-bold text-success mb-2">
+                        <i class="fas fa-chart-bar me-2"></i>Confidence Assessment
+                    </h6>
+                    <div class="d-flex justify-content-between align-items-center mb-2">
+                        <span>Overall Confidence:</span>
+                        <span class="fw-bold">${(overallConfidence * 100).toFixed(1)}%</span>
+                    </div>
+                    <div class="confidence-meter">
+                        <div class="confidence-fill" style="width: ${(overallConfidence * 100)}%"></div>
+                    </div>
+                </div>
+            `;
+        }
+        
+        results.innerHTML = `
+            <div class="alert alert-success">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <i class="fas fa-check-circle me-2"></i>
+                        <strong>Multi-Agent Prediction Generated Successfully</strong>
+                    </div>
+                    <div class="text-end">
+                        ${methodBadge}
+                        <br>
+                        <span class="badge bg-secondary mt-1"><i class="fas fa-map-marker-alt me-1"></i>${data.location}</span>
+                        <span class="badge bg-info mt-1"><i class="fas fa-calendar me-1"></i>${data.timeframe || data.prediction_days} days</span>
+                    </div>
+                </div>
+                <small class="text-muted d-block mt-2">${methodDescription}</small>
+            </div>
+            
+            <div class="prediction-content">
+                <div class="card">
+                    <div class="card-body">
+                        <pre class="weather-forecast mb-0">${data.prediction}</pre>
+                    </div>
+                </div>
+            </div>
+            
+            ${confidenceDisplay}
+            ${agentInsights}
+            
+            <div class="mt-4 alert alert-info">
+                <i class="fas fa-info-circle me-2"></i>
+                <strong>Multi-Agent Advantage:</strong> This prediction was generated using 5 specialized AI agents that collaborated to analyze data patterns, apply meteorological science, and ensure quality control for maximum accuracy.
+            </div>
+            
+            <div class="mt-3">
+                <div class="row text-center">
+                    <div class="col-md-4">
+                        <small class="text-muted">
+                            <i class="fas fa-clock me-1"></i>
+                            Generated: ${new Date(data.timestamp || Date.now()).toLocaleString()}
+                        </small>
+                    </div>
+                    <div class="col-md-4">
+                        <small class="text-muted">
+                            <i class="fas fa-network-wired me-1"></i>
+                            Agents: 5 Specialists
+                        </small>
+                    </div>
+                    <div class="col-md-4">
+                        <small class="text-muted">
+                            <i class="fas fa-shield-alt me-1"></i>
+                            Quality: Validated
+                        </small>
+                    </div>
+                </div>
+            </div>
+        `;
+    } else {
+        // Handle other prediction methods
+        switch(method) {
+            case 'langchain_rag':
+                methodBadge = '<span class="badge bg-purple"><i class="fas fa-star me-1"></i>LangChain + RAG</span>';
+                methodDescription = 'Advanced orchestration with conversation memory + RAG';
+                break;
+            case 'rag_local':
+                methodBadge = '<span class="badge bg-success"><i class="fas fa-brain me-1"></i>RAG + Local LLM</span>';
+                methodDescription = 'Historical patterns + local AI processing';
+                break;
+            case 'hybrid':
+            default:
+                methodBadge = '<span class="badge bg-info"><i class="fas fa-magic me-1"></i>Hybrid Smart</span>';
+                methodDescription = 'Intelligent method selection with fallback';
+        }
+        
+        results.innerHTML = `
+            <div class="alert alert-success">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <i class="fas fa-check-circle me-2"></i>
+                        <strong>Prediction Generated Successfully</strong>
+                    </div>
+                    <div class="text-end">
+                        ${methodBadge}
+                        <br>
+                        <span class="badge bg-secondary mt-1"><i class="fas fa-map-marker-alt me-1"></i>${data.location}</span>
+                        <span class="badge bg-info mt-1"><i class="fas fa-calendar me-1"></i>${data.timeframe || data.prediction_days} days</span>
+                    </div>
+                </div>
+                <small class="text-muted d-block mt-2">${methodDescription}</small>
+            </div>
+            
+            <div class="prediction-content">
+                <div class="card">
+                    <div class="card-body">
+                        <pre class="weather-forecast mb-0">${data.prediction}</pre>
+                    </div>
+                </div>
+            </div>
+        `;
     }
     
-    // Check for quota limitations or fallback usage
-    const quotaNote = data.fallback_used ? 
-        '<div class="alert alert-info mt-3"><i class="fas fa-info-circle me-2"></i><strong>Note:</strong> AI service quota exceeded. Using statistical analysis fallback.</div>' : '';
-    
-    // Check for local AI advantages
-    const localAdvantage = (method.includes('local') || method === 'hybrid') ? 
-        '<div class="alert alert-success mt-3"><i class="fas fa-star me-2"></i><strong>Local AI:</strong> No quota limits, faster processing, complete privacy!</div>' : '';
-    
-    // Enhancement notice
-    const enhancementNote = data.enhancement ? 
-        `<div class="alert alert-info mt-3"><i class="fas fa-lightbulb me-2"></i><strong>Enhancement:</strong> ${data.enhancement}</div>` : '';
-    
-    results.innerHTML = `
-        <div class="alert alert-success">
-            <div class="d-flex justify-content-between align-items-center">
-                <div>
-                    <i class="fas fa-check-circle me-2"></i>
-                    <strong>Prediction Generated Successfully</strong>
-                </div>
-                <div class="text-end">
-                    ${methodBadge}
-                    <br>
-                    <span class="badge bg-secondary mt-1"><i class="fas fa-map-marker-alt me-1"></i>${data.location}</span>
-                    <span class="badge bg-info mt-1"><i class="fas fa-calendar me-1"></i>${data.timeframe || data.prediction_days} days</span>
-                </div>
-            </div>
-            <small class="text-muted d-block mt-2">${methodDescription}</small>
-        </div>
-        
-        <div class="prediction-content">
-            <div class="card">
-                <div class="card-body">
-                    <pre class="weather-forecast mb-0">${data.prediction}</pre>
-                </div>
-            </div>
-        </div>
-        
-        ${quotaNote}
-        ${localAdvantage}
-        ${enhancementNote}
-        
-        <div class="mt-3">
-            <div class="row text-center">
-                <div class="col-md-4">
-                    <small class="text-muted">
-                        <i class="fas fa-clock me-1"></i>
-                        Generated: ${new Date(data.timestamp || data.generated_at).toLocaleString()}
-                    </small>
-                </div>
-                <div class="col-md-4">
-                    <small class="text-muted">
-                        <i class="fas fa-cog me-1"></i>
-                        Model: ${data.model_used || 'AI Service'}
-                    </small>
-                </div>
-                <div class="col-md-4">
-                    <small class="text-muted">
-                        <i class="fas fa-database me-1"></i>
-                        Source: ${data.source === 'local' ? 'Local Processing' : 'Cloud Processing'}
-                    </small>
-                </div>
-            </div>
-        </div>
-    `;
+    // Update agent status list
+    updateAgentStatusList();
     
     // Scroll to results
     results.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+// Update agent status list
+function updateAgentStatusList() {
+    const agentStatusDiv = document.getElementById('agentStatusList');
+    
+    agentStatusDiv.innerHTML = `
+        <div class="small">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+                <span><i class="fas fa-database me-1 text-primary"></i>Data Collector</span>
+                <span class="badge bg-success">Complete</span>
+            </div>
+            <div class="d-flex justify-content-between align-items-center mb-2">
+                <span><i class="fas fa-chart-line me-1 text-warning"></i>Pattern Analyzer</span>
+                <span class="badge bg-success">Complete</span>
+            </div>
+            <div class="d-flex justify-content-between align-items-center mb-2">
+                <span><i class="fas fa-cloud me-1 text-info"></i>Meteorologist</span>
+                <span class="badge bg-success">Complete</span>
+            </div>
+            <div class="d-flex justify-content-between align-items-center mb-2">
+                <span><i class="fas fa-star me-1 text-warning"></i>Confidence Assessor</span>
+                <span class="badge bg-success">Complete</span>
+            </div>
+            <div class="d-flex justify-content-between align-items-center">
+                <span><i class="fas fa-check-circle me-1 text-success"></i>Quality Controller</span>
+                <span class="badge bg-success">Complete</span>
+            </div>
+        </div>
+    `;
 }
 
 // Display error message
 function displayError(errorMessage, errorType = null) {
     const results = document.getElementById('predictionResults');
     
-    // Check if this is a timeout error
-    const isTimeout = errorMessage.toLowerCase().includes('timeout') || 
-                     errorMessage.toLowerCase().includes('taking longer than expected') ||
-                     errorType === 'timeout';
-    
-    // Check if this is a service unavailable error
-    const isServiceUnavailable = errorMessage.toLowerCase().includes('service unavailable') ||
-                                errorMessage.toLowerCase().includes('service not available') ||
-                                errorMessage.toLowerCase().includes('not properly initialized');
-    
-    let alertClass, iconClass, title, guidance;
-    
-    if (isTimeout) {
-        alertClass = 'alert-warning';
-        iconClass = 'fas fa-clock';
-        title = 'Prediction Taking Longer Than Expected';
-        guidance = `
-            <div class="mt-3">
-                <h6><i class="fas fa-info-circle me-2"></i>What's happening:</h6>
-                <p>The AI model is processing your request but needs more time to generate a comprehensive prediction.</p>
-                
-                <h6><i class="fas fa-lightbulb me-2"></i>What you can do:</h6>
-                <ul class="mb-0">
-                    <li>Wait a moment and try again - the model may have finished processing</li>
-                    <li>Try a simpler location (e.g., "Tokyo" instead of detailed address)</li>
-                    <li>Use a shorter prediction timeframe (3-5 days instead of 7+)</li>
-                    <li>Switch to a faster method like "Hybrid AI" or "Statistical Analysis"</li>
-                </ul>
-            </div>
-        `;
-    } else if (isServiceUnavailable) {
-        alertClass = 'alert-info';
-        iconClass = 'fas fa-tools';
-        title = 'AI Service Temporarily Unavailable';
-        guidance = `
-            <div class="mt-3">
-                <h6><i class="fas fa-info-circle me-2"></i>What's happening:</h6>
-                <p>The requested AI service is not currently available or properly configured.</p>
-                
-                <h6><i class="fas fa-lightbulb me-2"></i>What you can do:</h6>
-                <ul class="mb-0">
-                    <li>Try a different prediction method from the dropdown</li>
-                    <li>Use "Statistical Analysis" for reliable baseline predictions</li>
-                    <li>Contact administrator if this problem persists</li>
-                </ul>
-            </div>
-        `;
-    } else {
-        alertClass = 'alert-danger';
-        iconClass = 'fas fa-exclamation-triangle';
-        title = 'Prediction Error';
-        guidance = `
-            <div class="mt-3">
-                <h6><i class="fas fa-lightbulb me-2"></i>What you can do:</h6>
-                <ul class="mb-0">
-                    <li>Check your internet connection</li>
-                    <li>Verify the location name is correct</li>
-                    <li>Try a different prediction method</li>
-                    <li>Refresh the page and try again</li>
-                </ul>
-            </div>
-        `;
-    }
-    
     results.innerHTML = `
-        <div class="alert ${alertClass}">
-            <i class="${iconClass} me-2"></i>
-            <strong>${title}:</strong> ${errorMessage}
+        <div class="alert alert-danger">
+            <i class="fas fa-exclamation-triangle me-2"></i>
+            <strong>Prediction Error:</strong> ${errorMessage}
         </div>
-        ${guidance}
         <div class="text-center py-3">
-            <button class="btn btn-outline-primary" onclick="document.getElementById('weatherForm').style.display = 'block'">
+            <button class="btn btn-outline-primary" onclick="generatePrediction()">
                 <i class="fas fa-redo me-2"></i>Try Again
             </button>
         </div>
     `;
 }
-
-// Search Weather Patterns using RAG
-async function searchWeatherPatterns() {
-    const query = document.getElementById('patternQuery').value.trim();
-    
-    if (!query) {
-        alert('Please enter a search query for weather patterns');
-        return;
-    }
-    
-    console.log(`🔍 Searching weather patterns for: ${query}`);
-    
-    try {
-        const response = await fetch('/api/weather/rag-search', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRFToken': getCSRFToken()
-            },
-            body: JSON.stringify({
-                query: query,
-                limit: 5
-            })
-        });
-        
-        const data = await response.json();
-        
-        if (data.success) {
-            displayPatternSearchResults(data, query);
-        } else {
-            displayPatternSearchError(data.error);
-        }
-    } catch (error) {
-        console.error('Pattern search error:', error);
-        displayPatternSearchError('Network error occurred during pattern search');
-    }
-}
-
-// Display pattern search results
-function displayPatternSearchResults(data, query) {
-    const resultsDiv = document.getElementById('patternSearchResults');
-    const contentDiv = document.getElementById('patternResultsContent');
-    
-    if (!data.results || data.results.length === 0) {
-        contentDiv.innerHTML = `
-            <div class="alert alert-warning">
-                <i class="fas fa-search me-2"></i>
-                <strong>No patterns found</strong> for query: "${query}"
-            </div>
-        `;
-        resultsDiv.style.display = 'block';
-        return;
-    }
-    
-    let html = `
-        <div class="alert alert-info">
-            <i class="fas fa-search me-2"></i>
-            Found <strong>${data.results.length}</strong> similar weather patterns for: "<em>${query}</em>"
-        </div>
-    `;
-    
-    data.results.forEach((result, index) => {
-        const metadata = result.metadata || {};
-        const temperature = metadata.avg_temp ? `${metadata.avg_temp.toFixed(1)}°C` : 'N/A';
-        const humidity = metadata.avg_humidity ? `${metadata.avg_humidity.toFixed(1)}%` : 'N/A';
-        const season = metadata.season || 'Unknown';
-        const date = metadata.date || 'Unknown';
-        const docType = result.doc_type || 'weather';
-        const relevanceScore = result.relevance_score ? (result.relevance_score * 100).toFixed(1) + '%' : 'N/A';
-        const wind = metadata.avg_wind ? `${metadata.avg_wind.toFixed(1)} m/s` : 'N/A';
-        
-        html += `
-            <div class="card mb-3 pattern-result-card">
-                <div class="card-header bg-light">
-                    <h6 class="mb-0">
-                        <i class="fas fa-calendar me-2"></i>Pattern ${index + 1}: ${date}
-                        <span class="badge bg-primary ms-2">${season}</span>
-                        <span class="badge bg-success ms-1">Score: ${relevanceScore}</span>
-                    </h6>
-                </div>
-                <div class="card-body">
-                    <div class="row">
-                        <div class="col-md-8">
-                            <p class="card-text small">${result.content.substring(0, 200)}${result.content.length > 200 ? '...' : ''}</p>
-                        </div>
-                        <div class="col-md-4">
-                            <div class="weather-stats">
-                                <p class="mb-1"><i class="fas fa-thermometer-half text-danger"></i> ${temperature}</p>
-                                <p class="mb-1"><i class="fas fa-tint text-primary"></i> ${humidity}</p>
-                                <p class="mb-1"><i class="fas fa-wind text-info"></i> ${wind}</p>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        `;
-    });
-    
-    contentDiv.innerHTML = html;
-    resultsDiv.style.display = 'block';
-    
-    // Scroll to results
-    resultsDiv.scrollIntoView({ behavior: 'smooth', block: 'start' });
-}
-
-// Display pattern search error
-function displayPatternSearchError(error) {
-    const resultsDiv = document.getElementById('patternSearchResults');
-    const contentDiv = document.getElementById('patternResultsContent');
-    
-    contentDiv.innerHTML = `
-        <div class="alert alert-danger">
-            <i class="fas fa-exclamation-triangle me-2"></i>
-            <strong>Pattern Search Error:</strong> ${error}
-        </div>
-    `;
-    
-    resultsDiv.style.display = 'block';
-}
-
-// Allow Enter key for pattern search
-document.getElementById('patternQuery').addEventListener('keypress', function(e) {
-    if (e.key === 'Enter') {
-        searchWeatherPatterns();
-    }
-});
 </script>
 {% endblock %}

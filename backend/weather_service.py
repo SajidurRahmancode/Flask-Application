@@ -5,9 +5,17 @@ from dotenv import load_dotenv
 import json
 from datetime import datetime, timedelta
 import google.generativeai as genai
-from langchain_google_genai import ChatGoogleGenerativeAI
-from langchain.prompts import PromptTemplate
 import logging
+
+# Import LangChain dependencies with graceful fallbacks
+try:
+    from langchain_google_genai import ChatGoogleGenerativeAI
+    from langchain.prompts import PromptTemplate
+    LANGCHAIN_AVAILABLE = True
+except ImportError as e:
+    LANGCHAIN_AVAILABLE = False
+    logger = logging.getLogger(__name__)
+    logger.warning(f"⚠️ LangChain dependencies not available: {e}")
 
 # Import RAG service
 try:
@@ -33,6 +41,14 @@ except ImportError as e:
     LANGCHAIN_RAG_AVAILABLE = False
     print(f"⚠️ LangChain + RAG service not available: {e}")
 
+# Import LangGraph service
+try:
+    from backend.langgraph_service import LangGraphWeatherService
+    LANGGRAPH_AVAILABLE = True
+except ImportError as e:
+    LANGGRAPH_AVAILABLE = False
+    print(f"⚠️ LangGraph service not available: {e}")
+
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -48,6 +64,7 @@ class WeatherPredictionService:
             self.rag_service = None
             self.lm_studio_service = None
             self.langchain_rag_service = None
+            self.langgraph_service = None
             self.llm = None
             self.gemini_available = False
             
@@ -63,16 +80,21 @@ class WeatherPredictionService:
                     # Configure the Gemini AI
                     genai.configure(api_key=self.gemini_api_key)
                     
-                    # Initialize the LangChain Gemini model
-                    self.llm = ChatGoogleGenerativeAI(
-                        model="gemini-2.0-flash-exp",
-                        google_api_key=self.gemini_api_key,
-                        temperature=0.7,
-                        max_tokens=2000,
-                        convert_system_message_to_human=True
-                    )
+                    # Initialize the LangChain Gemini model (if available)
+                    if LANGCHAIN_AVAILABLE:
+                        self.llm = ChatGoogleGenerativeAI(
+                            model="gemini-2.0-flash-exp",
+                            google_api_key=self.gemini_api_key,
+                            temperature=0.7,
+                            max_tokens=2000,
+                            convert_system_message_to_human=True
+                        )
+                        logger.info("✅ Gemini AI with LangChain initialized successfully")
+                    else:
+                        self.llm = None
+                        logger.warning("⚠️ LangChain not available, using basic Gemini API")
+                    
                     self.gemini_available = True
-                    logger.info("✅ Gemini AI initialized successfully")
                     
                     # Initialize RAG service with Gemini
                     if RAG_AVAILABLE:
@@ -137,6 +159,26 @@ class WeatherPredictionService:
             else:
                 logger.warning("⚠️ LangChain + RAG service not available")
                 self.langchain_rag_service = None
+            
+            # Initialize LangGraph multi-agent service for advanced orchestration
+            if LANGGRAPH_AVAILABLE:
+                try:
+                    self.langgraph_service = LangGraphWeatherService(
+                        weather_service=self,
+                        rag_service=self.rag_service,
+                        langchain_service=self.langchain_rag_service,
+                        lm_studio_service=self.lm_studio_service
+                    )
+                    if self.langgraph_service.available:
+                        logger.info("🧠 LangGraph multi-agent service initialized successfully")
+                    else:
+                        logger.warning("⚠️ LangGraph service initialized but not available")
+                except Exception as e:
+                    logger.error(f"⚠️ Could not initialize LangGraph service: {e}")
+                    self.langgraph_service = None
+            else:
+                logger.warning("⚠️ LangGraph service not available")
+                self.langgraph_service = None
             
             logger.info(f"✅ Weather service initialized successfully with {len(self.data) if self.data is not None else 0} records")
             
@@ -1163,6 +1205,78 @@ Use the historical patterns to inform your predictions while accounting for seas
                     "details": f"LangChain error: {str(e)}, Fallback error: {str(fallback_error)}"
                 }
     
+    def predict_weather_with_langgraph(self, location="Tokyo", prediction_days=3):
+        """Advanced weather prediction using LangGraph multi-agent system"""
+        try:
+            logger.info(f"🧠 Starting LangGraph multi-agent prediction for {location}, {prediction_days} days...")
+            
+            if not self.langgraph_service or not self.langgraph_service.available:
+                logger.warning("⚠️ LangGraph multi-agent service not available - falling back to LangChain + RAG")
+                if self.langchain_rag_service and self.langchain_rag_service.available:
+                    return self.predict_weather_langchain_rag(location, prediction_days)
+                elif self.rag_service and self.lm_studio_service and self.lm_studio_service.available:
+                    return self.predict_weather_with_rag_local_llm(location, prediction_days)
+                elif self.lm_studio_service and self.lm_studio_service.available:
+                    return self.predict_weather_with_local_llm(location, prediction_days)
+                else:
+                    result = self.generate_statistical_prediction(location, prediction_days)
+                    if result and result.get('success'):
+                        result['fallback_used'] = True
+                        result['method'] = "statistical_fallback"
+                        result['model_used'] = "Statistical Analysis (LangGraph Unavailable)"
+                        result['note'] = "LangGraph multi-agent service unavailable - using statistical analysis"
+                        result['alternatives'] = [
+                            "🧠 LangChain + RAG (requires services)",
+                            "🏠 Local LLM Only (requires LM Studio)",
+                            "📚 RAG + Local LLM (requires LM Studio + API key)"
+                        ]
+                    return result
+            
+            # Use LangGraph multi-agent system for the most advanced prediction
+            result = self.langgraph_service.predict_weather_with_langgraph(location, prediction_days)
+            
+            if result and result.get('success'):
+                logger.info("✅ LangGraph multi-agent prediction completed successfully")
+                # Add additional metadata for LangGraph predictions
+                result['timeframe'] = prediction_days  # Ensure consistent naming
+                result['advanced_features'] = [
+                    "Multi-Agent Architecture",
+                    "Intelligent Routing",
+                    "Quality Validation", 
+                    "Dynamic Fallbacks",
+                    "Confidence Assessment",
+                    "Specialized Weather Agents"
+                ]
+                return result
+            else:
+                logger.warning("⚠️ LangGraph multi-agent prediction failed - using fallback")
+                return self.predict_weather_langchain_rag(location, prediction_days)
+                
+        except Exception as e:
+            logger.error(f"❌ LangGraph multi-agent prediction error: {str(e)}")
+            # Intelligent fallback chain
+            try:
+                if self.langchain_rag_service and self.langchain_rag_service.available:
+                    return self.predict_weather_langchain_rag(location, prediction_days)
+                elif self.rag_service and self.lm_studio:
+                    return self.predict_weather_with_rag_local_llm(location, prediction_days)
+                elif self.lm_studio:
+                    return self.predict_weather_with_local_llm(location, prediction_days)
+                else:
+                    result = self.generate_statistical_prediction(location, prediction_days)
+                    if result and result.get('success'):
+                        result['fallback_used'] = True
+                        result['model_used'] = "Statistical Analysis (LangGraph Error)"
+                        result['note'] = f"LangGraph multi-agent error: {str(e)} - using statistical analysis"
+                    return result
+            except Exception as fallback_error:
+                logger.error(f"❌ All prediction methods failed: {str(fallback_error)}")
+                return {
+                    "error": "All prediction methods failed",
+                    "success": False,
+                    "details": f"LangGraph error: {str(e)}, Fallback error: {str(fallback_error)}"
+                }
+    
     def get_lm_studio_status(self):
         """Get detailed status of LM Studio service"""
         try:
@@ -1195,6 +1309,38 @@ Use the historical patterns to inform your predictions while accounting for seas
                 }
             
             return self.langchain_rag_service.get_service_status()
+            
+        except Exception as e:
+            return {"status": f"❌ Error: {str(e)}", "available": False}
+    
+    def get_langgraph_status(self):
+        """Get detailed status of LangGraph multi-agent service"""
+        try:
+            if not self.langgraph_service:
+                return {
+                    "status": "❌ Not initialized", 
+                    "available": False,
+                    "reason": "LangGraph multi-agent service not initialized",
+                    "requirements": [
+                        "LangGraph package must be installed",
+                        "Weather service must be available",
+                        "At least one AI service (LangChain/LM Studio) recommended"
+                    ],
+                    "capabilities": [
+                        "🤖 Multi-Agent Analysis",
+                        "🔀 Intelligent Routing",
+                        "✅ Quality Validation",
+                        "🔄 Dynamic Fallbacks",
+                        "📊 Confidence Assessment"
+                    ],
+                    "alternatives": [
+                        "🧠 LangChain + RAG",
+                        "🏠 Local LLM Only",
+                        "📚 RAG + Local LLM"
+                    ]
+                }
+            
+            return self.langgraph_service.get_langgraph_status()
             
         except Exception as e:
             return {"status": f"❌ Error: {str(e)}", "available": False}

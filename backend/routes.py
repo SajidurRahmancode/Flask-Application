@@ -870,3 +870,111 @@ def get_service_overview():
             'error': f'Service overview failed: {str(e)}',
             'success': False
         }), 500
+
+@api.route('/weather/predict-langgraph', methods=['POST'])
+def predict_weather_langgraph():
+    """Ultimate weather prediction using LangGraph multi-agent system"""
+    try:
+        if 'user_id' not in session:
+            return jsonify({"error": "Authentication required"}), 401
+        
+        logger.info("🧠 LangGraph multi-agent weather prediction request received")
+        
+        # Get request data
+        data = request.get_json()
+        if not data:
+            return jsonify({
+                "error": "No JSON data provided",
+                "success": False
+            }), 400
+        
+        location = data.get('location', 'Tokyo')
+        timeframe = data.get('timeframe', 3)
+        
+        # Validate inputs
+        if not isinstance(timeframe, int) or timeframe < 1 or timeframe > 14:
+            return jsonify({
+                "error": "Invalid timeframe. Must be between 1 and 14 days",
+                "success": False
+            }), 400
+        
+        logger.info(f"🧠 LangGraph multi-agent prediction for {location}, {timeframe} days")
+        
+        # Check if LangGraph method is available
+        if not hasattr(weather_service, 'predict_weather_with_langgraph'):
+            logger.error("❌ LangGraph multi-agent method not available on weather service")
+            return jsonify({
+                "error": "LangGraph multi-agent method not available",
+                "success": False,
+                "alternatives": [
+                    "🧠 LangChain + RAG: /weather/predict-langchain-rag",
+                    "🏠 Local LLM: /weather/predict-local",
+                    "📚 RAG + Local LLM: /weather/predict-rag-local"
+                ]
+            }), 503
+        
+        # Get LangGraph multi-agent prediction
+        result = weather_service.predict_weather_with_langgraph(location, timeframe)
+        
+        if result and result.get('success'):
+            logger.info("✅ LangGraph multi-agent weather prediction successful")
+            return jsonify(result), 200
+        else:
+            logger.error(f"❌ LangGraph multi-agent prediction failed")
+            
+            # Determine error type for better frontend handling
+            error_response = result or {"error": "Prediction failed", "success": False}
+            
+            # Check for timeout conditions
+            if result and (
+                result.get('timeout_occurred') or
+                (result.get('error') and 'timeout' in str(result.get('error')).lower()) or
+                (result.get('note') and 'taking longer than expected' in str(result.get('note')).lower())
+            ):
+                error_response['error_type'] = 'timeout'
+                if not error_response.get('error'):
+                    error_response['error'] = 'Prediction is taking longer than expected'
+            
+            # Check for service unavailable conditions
+            elif result and (
+                'not available' in str(result.get('error', '')).lower() or
+                'service unavailable' in str(result.get('error', '')).lower() or
+                'not properly initialized' in str(result.get('error', '')).lower()
+            ):
+                error_response['error_type'] = 'service_unavailable'
+                if not error_response.get('error'):
+                    error_response['error'] = 'LangGraph multi-agent service is not currently available'
+            
+            return jsonify(error_response), 500
+            
+    except Exception as e:
+        logger.error(f"❌ LangGraph multi-agent prediction endpoint error: {str(e)}")
+        return jsonify({
+            "error": f"Server error: {str(e)}",
+            "success": False
+        }), 500
+
+@api.route('/weather/langgraph-status', methods=['GET'])
+def get_langgraph_status():
+    """Get LangGraph multi-agent service status and capabilities"""
+    try:
+        if 'user_id' not in session:
+            return jsonify({"error": "Authentication required"}), 401
+            
+        logger.info("📊 LangGraph multi-agent status request received")
+        
+        # Get LangGraph status
+        status = weather_service.get_langgraph_status()
+        
+        return jsonify({
+            'success': True,
+            'langgraph_status': status,
+            'timestamp': datetime.now().isoformat()
+        }), 200
+        
+    except Exception as e:
+        logger.error(f"❌ LangGraph status check error: {str(e)}")
+        return jsonify({
+            'error': f'LangGraph status check failed: {str(e)}',
+            'success': False
+        }), 500

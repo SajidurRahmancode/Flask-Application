@@ -266,3 +266,163 @@ body {
     font-size: 0.875rem;
     font-weight: 500;
 }
+
+/* LangGraph Multi-Agent Styles */
+.langgraph-badge {
+    background: linear-gradient(135deg, #00b894 0%, #00cec9 100%) !important;
+    color: white !important;
+    border: none;
+    padding: 0.5rem 1rem;
+    border-radius: 25px;
+    font-weight: bold;
+    box-shadow: 0 4px 15px rgba(0, 184, 148, 0.3);
+    display: inline-block;
+    text-decoration: none;
+}
+
+.langgraph-badge:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 6px 20px rgba(0, 184, 148, 0.4);
+}
+
+.agent-card {
+    background: white;
+    border-radius: 15px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.08);
+    transition: all 0.3s ease;
+    padding: 1rem;
+    margin-bottom: 1rem;
+    border: 1px solid #e3f2fd;
+    position: relative;
+}
+
+.agent-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 8px 25px rgba(0,0,0,0.12);
+    border-color: #6c5ce7;
+}
+
+.agent-status {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    display: inline-block;
+    margin-right: 0.5rem;
+}
+
+.agent-status.active {
+    background-color: #00b894;
+    box-shadow: 0 0 8px rgba(0, 184, 148, 0.6);
+    animation: pulse-green 2s infinite;
+}
+
+@keyframes pulse-green {
+    0% { box-shadow: 0 0 0 0 rgba(0, 184, 148, 0.7); }
+    70% { box-shadow: 0 0 0 8px rgba(0, 184, 148, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(0, 184, 148, 0); }
+}
+
+.agent-status.offline {
+    background-color: #ddd;
+}
+
+.confidence-meter {
+    height: 6px;
+    background-color: #e9ecef;
+    border-radius: 3px;
+    overflow: hidden;
+    margin: 0.5rem 0;
+}
+
+.confidence-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #ff6b6b 0%, #feca57 50%, #48dbfb 100%);
+    transition: width 0.8s ease;
+    border-radius: 3px;
+}
+
+.workflow-step {
+    padding: 0.75rem;
+    border-radius: 8px;
+    margin-bottom: 0.5rem;
+    border-left: 3px solid #dee2e6;
+    background: #f8f9fa;
+    transition: all 0.3s ease;
+    font-size: 0.9rem;
+}
+
+.workflow-step.active {
+    background: linear-gradient(135deg, #e8f5e8 0%, #f0f8f0 100%);
+    border-left-color: #00b894;
+    color: #00b894;
+    font-weight: 500;
+}
+
+.btn-langgraph {
+    background: linear-gradient(135deg, #6c5ce7 0%, #a29bfe 100%) !important;
+    border: none !important;
+    padding: 12px 24px;
+    font-weight: 600;
+    color: white !important;
+    border-radius: 25px;
+    box-shadow: 0 4px 15px rgba(108, 92, 231, 0.3);
+    transition: all 0.3s ease;
+    text-decoration: none;
+    display: inline-block;
+}
+
+.btn-langgraph:hover {
+    background: linear-gradient(135deg, #5a4fcf 0%, #9085e8 100%) !important;
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(108, 92, 231, 0.4);
+    color: white !important;
+}
+
+.agent-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 1rem;
+    margin: 1rem 0;
+}
+
+.navbar .nav-link .badge {
+    position: absolute;
+    top: -5px;
+    right: -10px;
+    font-size: 0.6rem;
+    padding: 2px 6px;
+}
+
+.weather-forecast {
+    background-color: #f8f9fa;
+    border: 1px solid #dee2e6;
+    border-radius: 8px;
+    padding: 1rem;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    white-space: pre-wrap;
+    font-size: 0.95rem;
+    line-height: 1.5;
+    color: #333;
+}
+
+.system-status-online {
+    background: linear-gradient(135deg, #e8f5e8 0%, #f0f8f0 100%);
+    border: 1px solid #00b894;
+    color: #00b894;
+}
+
+.system-status-offline {
+    background: linear-gradient(135deg, #ffeaa7 0%, #fdcb6e 100%);
+    border: 1px solid #fdcb6e;
+    color: #e17055;
+}
+
+/* Quick status indicator animation */
+#quickStatusIndicator {
+    animation: slideDown 0.3s ease;
+}
+
+@keyframes slideDown {
+    from { opacity: 0; transform: translateY(-10px); }
+    to { opacity: 1; transform: translateY(0); }
+}

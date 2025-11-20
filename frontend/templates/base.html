@@ -41,8 +41,9 @@
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" href="{{ url_for('auth.weather_dashboard') }}">
-                            <i class="fas fa-cloud-sun me-1"></i>Weather AI
+                        <a class="nav-link" href="{{ url_for('auth.weather_dashboard') }}" style="position: relative;">
+                            <i class="fas fa-network-wired me-1"></i>LangGraph AI
+                            <span class="badge bg-success ms-1" style="font-size: 0.7rem;">Multi-Agent</span>
                         </a>
                     </li>
                     {% endif %}

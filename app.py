@@ -5,9 +5,11 @@ from flask_wtf.csrf import CSRFProtect
 from backend.models import db
 from backend.routes import api
 from backend.auth import auth_bp
+from backend.websocket_service import websocket_service
 from dotenv import load_dotenv
 import os
 from datetime import timedelta
+import logging
 
 # Load environment variables
 load_dotenv()
@@ -53,6 +55,12 @@ def create_app():
     jwt = JWTManager(app)
     csrf = CSRFProtect(app)
     db.init_app(app)
+    
+    # Initialize WebSocket service
+    socketio = websocket_service.init_app(app, cors_allowed_origins="*")
+    
+    # Store socketio in app config for access in routes
+    app.config['SOCKETIO'] = socketio
 
     # Context processors for templates
     @app.context_processor
@@ -81,7 +89,7 @@ def create_app():
             return redirect(url_for('auth.dashboard'))
         return redirect(url_for('auth.login'))
 
-    return app
+    return app, socketio
 
 def initialize_database_and_tables():
     """Initialize database and create tables if they don't exist"""
@@ -102,7 +110,7 @@ def initialize_database_and_tables():
         print("🔧 Make sure XAMPP MySQL is running and try again")
         return False
 
-app = create_app()
+app, socketio = create_app()
 
 # Initialize database and create tables
 with app.app_context():
@@ -119,12 +127,13 @@ with app.app_context():
         print("    Continuing anyway - you may need to set up the database manually.")
 
 if __name__ == '__main__':
-    print("🚀 Starting Flask Template Authentication App...")
+    print("🚀 Starting Flask Weather App with WebSocket Support...")
     print("=" * 50)
     print(f"🌐 Web App will be available at: http://localhost:5000")
-    print(f"🔑 Auth pages: http://localhost:5000/auth/login, /auth/signup, /auth/dashboard")
-    print(f"📊 API endpoints: http://localhost:5000/api/users, /api/images")
-    print(f"🎯 Template-based frontend with Bootstrap 5 and Jinja2")
+    print(f"� WebSocket endpoint: ws://localhost:5000/socket.io")
+    print(f"�🔑 Auth pages: http://localhost:5000/auth/login, /auth/signup, /auth/dashboard")
+    print(f"📊 API endpoints: http://localhost:5000/api/users, /api/weather")
+    print(f"🎯 Real-time LangGraph multi-agent system with WebSocket monitoring")
     print("=" * 50)
     
-    app.run(debug=True, port=5000)
+    socketio.run(app, debug=True, port=5000, host='0.0.0.0', allow_unsafe_werkzeug=True)

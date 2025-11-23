@@ -15,17 +15,30 @@ api = Blueprint('api', __name__)
 # Initialize CSRF protection
 csrf = CSRFProtect()
 
-# Initialize weather service
+# Initialize weather service and WebSocket integration
 weather_service = None
+websocket_service = None
+
 try:
     from backend.weather_service import WeatherPredictionService
+    from backend.websocket_service import websocket_service as ws_service
+    
     weather_service = WeatherPredictionService()
+    websocket_service = ws_service
     print("✅ Weather prediction service initialized successfully")
+    print("✅ WebSocket service initialized successfully")
+    
+    # Initialize weather service with WebSocket support if LangGraph is available
+    if hasattr(weather_service, 'langgraph_service') and weather_service.langgraph_service:
+        weather_service.langgraph_service.websocket_service = websocket_service
+        print("✅ LangGraph service connected to WebSocket")
+        
 except Exception as e:
-    print(f"❌ Failed to initialize weather service: {e}")
+    print(f"❌ Failed to initialize services: {e}")
     print(f"   Error details: {type(e).__name__}: {str(e)}")
-    logger.error(f"Weather service initialization failed: {str(e)}")
+    logger.error(f"Service initialization failed: {str(e)}")
     weather_service = None
+    websocket_service = None
 
 @api.route('/users', methods=['GET'])
 @jwt_required()
@@ -952,6 +965,112 @@ def predict_weather_langgraph():
         return jsonify({
             "error": f"Server error: {str(e)}",
             "success": False
+        }), 500
+
+@api.route('/weather/predict-langgraph-websocket', methods=['POST'])
+def predict_weather_langgraph_websocket():
+    """Ultimate weather prediction using LangGraph multi-agent system with real-time WebSocket updates"""
+    try:
+        if 'user_id' not in session:
+            return jsonify({"error": "Authentication required"}), 401
+        
+        logger.info("🧠🔗 LangGraph WebSocket multi-agent weather prediction request received")
+        
+        # Get request data
+        data = request.get_json()
+        if not data:
+            return jsonify({
+                "error": "No JSON data provided",
+                "success": False
+            }), 400
+        
+        location = data.get('location', 'Tokyo')
+        timeframe = data.get('timeframe', 3)
+        
+        # Validate inputs
+        if not isinstance(timeframe, int) or timeframe < 1 or timeframe > 14:
+            return jsonify({
+                "error": "Timeframe must be an integer between 1 and 14 days",
+                "success": False
+            }), 400
+            
+        if not location or len(location.strip()) == 0:
+            return jsonify({
+                "error": "Location cannot be empty",
+                "success": False
+            }), 400
+        
+        logger.info(f"🧠🔗 LangGraph WebSocket prediction for {location}, {timeframe} days")
+        
+        # Check if weather service supports LangGraph
+        if not weather_service:
+            return jsonify({
+                "error": "Weather service not available",
+                "success": False,
+                "error_type": "service_unavailable"
+            }), 503
+        
+        if not hasattr(weather_service, 'predict_weather_with_langgraph'):
+            return jsonify({
+                "error": "LangGraph multi-agent system not available in weather service",
+                "success": False,
+                "error_type": "feature_unavailable",
+                "available_methods": ["basic", "rag", "local_llm"] 
+            }), 501
+        
+        # Start WebSocket workflow if available
+        workflow_id = None
+        if websocket_service:
+            workflow_id = websocket_service.start_workflow(
+                workflow_type='weather_prediction',
+                params={'location': location, 'prediction_days': timeframe}
+            )
+            logger.info(f"🔗 Started WebSocket workflow: {workflow_id}")
+        
+        # Get LangGraph multi-agent prediction with WebSocket support
+        result = weather_service.predict_weather_with_langgraph(
+            location=location, 
+            prediction_days=timeframe,
+            workflow_id=workflow_id
+        )
+        
+        if result and result.get('success'):
+            logger.info("✅ LangGraph WebSocket multi-agent weather prediction successful")
+            
+            # Add WebSocket workflow ID to response
+            if workflow_id:
+                result['workflow_id'] = workflow_id
+                result['websocket_enabled'] = True
+            
+            return jsonify(result), 200
+        else:
+            logger.error(f"❌ LangGraph WebSocket multi-agent prediction failed")
+            error_response = {
+                "error": result.get('error', 'LangGraph prediction failed - unknown error'),
+                "success": False,
+                "method": "langgraph_websocket_failed",
+                "location": location,
+                "timeframe": timeframe,
+                "error_type": "prediction_failed"
+            }
+            
+            # Broadcast error if WebSocket is available
+            if websocket_service and workflow_id:
+                websocket_service.broadcast_error(workflow_id, error_response['error'])
+            
+            return jsonify(error_response), 500
+            
+    except Exception as e:
+        logger.error(f"❌ LangGraph WebSocket prediction endpoint error: {str(e)}")
+        
+        # Broadcast error if WebSocket is available
+        if 'workflow_id' in locals() and websocket_service and workflow_id:
+            websocket_service.broadcast_error(workflow_id, f"Server error: {str(e)}")
+        
+        return jsonify({
+            "error": f"Server error: {str(e)}",
+            "success": False,
+            "error_type": "server_error"
         }), 500
 
 @api.route('/weather/langgraph-status', methods=['GET'])

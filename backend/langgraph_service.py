@@ -80,17 +80,19 @@ class LangGraphWeatherService:
     - Quality Control Agent: Validates final predictions
     """
     
-    def __init__(self, weather_service=None, rag_service=None, langchain_service=None, lm_studio_service=None):
+    def __init__(self, weather_service=None, rag_service=None, langchain_service=None, lm_studio_service=None, websocket_service=None):
         """Initialize LangGraph weather service with existing components"""
         self.weather_service = weather_service
         self.rag_service = rag_service
         self.langchain_service = langchain_service
         self.lm_studio_service = lm_studio_service
+        self.websocket_service = websocket_service
         
         self.available = LANGGRAPH_AVAILABLE
         self.prediction_graph = None
         self.service_selection_graph = None
         self.quality_validation_graph = None
+        self.current_workflow_id = None
         
         # Agent configurations
         self.agents = {
@@ -128,6 +130,34 @@ class LangGraphWeatherService:
         else:
             logger.warning("⚠️ LangGraph not available - service disabled")
     
+    def _broadcast_agent_status(self, agent_type: str, status: str, progress: float, message: str, data: Dict[str, Any] = None):
+        """Broadcast agent status via WebSocket if available"""
+        if self.websocket_service and self.current_workflow_id:
+            agent_id = f"{self.current_workflow_id}_{agent_type}"
+            self.websocket_service.update_agent_status(
+                agent_id=agent_id,
+                status=status,
+                progress=progress,
+                message=message,
+                data=data
+            )
+    
+    def _broadcast_workflow_complete(self, result: Dict[str, Any]):
+        """Broadcast workflow completion via WebSocket if available"""
+        if self.websocket_service and self.current_workflow_id:
+            self.websocket_service.broadcast_prediction_result(
+                workflow_id=self.current_workflow_id,
+                result=result
+            )
+    
+    def _broadcast_workflow_error(self, error: str):
+        """Broadcast workflow error via WebSocket if available"""
+        if self.websocket_service and self.current_workflow_id:
+            self.websocket_service.broadcast_error(
+                workflow_id=self.current_workflow_id,
+                error=error
+            )
+    
     def _initialize_graphs(self):
         """Initialize all LangGraph workflows"""
         try:
@@ -153,10 +183,21 @@ class LangGraphWeatherService:
             """Agent responsible for collecting and validating weather data"""
             logger.info(f"🔍 Data Collection Agent: Processing {state['location']}")
             
+            # Broadcast agent start
+            self._broadcast_agent_status('data_collection', 'running', 0.1, 
+                                       f"Starting data collection for {state['location']}")
+            
             try:
+                # Broadcast progress
+                self._broadcast_agent_status('data_collection', 'running', 0.3, 
+                                           "Accessing weather database...")
+                
                 # Collect current conditions
                 if self.weather_service:
                     recent_data = self.weather_service.get_recent_weather_data(days=3)
+                    self._broadcast_agent_status('data_collection', 'running', 0.7, 
+                                               "Processing weather data...")
+                    
                     current_conditions = {
                         'temperature': recent_data['Actual_Temperature(°C)'].iloc[-1] if not recent_data.empty else 20.0,
                         'humidity': recent_data['Actual_Humidity(%)'].iloc[-1] if not recent_data.empty else 60.0,
@@ -169,28 +210,48 @@ class LangGraphWeatherService:
                 state['current_conditions'] = current_conditions
                 state['agent_reports']['data_collector'] = f"✅ Data collected for {state['location']}: {current_conditions.get('data_quality', 'unknown')} quality"
                 
+                # Broadcast completion
+                self._broadcast_agent_status('data_collection', 'completed', 1.0, 
+                                           f"Data collection completed - Quality: {current_conditions.get('data_quality', 'unknown')}",
+                                           data=current_conditions)
+                
                 return state
                 
             except Exception as e:
                 logger.error(f"❌ Data Collection Agent failed: {e}")
                 state['error_message'] = f"Data collection failed: {str(e)}"
                 state['agent_reports']['data_collector'] = f"❌ Data collection failed: {str(e)}"
+                
+                # Broadcast error
+                self._broadcast_agent_status('data_collection', 'error', 0.0, 
+                                           f"Data collection failed: {str(e)}")
+                
                 return state
         
         def pattern_analysis_agent(state: WeatherAnalysisState) -> WeatherAnalysisState:
             """Agent responsible for analyzing historical weather patterns"""
             logger.info("📊 Pattern Analysis Agent: Analyzing historical patterns")
             
+            # Broadcast agent start
+            self._broadcast_agent_status('pattern_analysis', 'running', 0.1, 
+                                       "Starting pattern analysis...")
+            
             try:
                 patterns = []
                 rag_confidence = 0.0
                 
                 if self.rag_service and state['current_conditions']:
+                    # Broadcast progress
+                    self._broadcast_agent_status('pattern_analysis', 'running', 0.3, 
+                                               "Querying historical patterns...")
+                    
                     # Build query for similar conditions
                     conditions = state['current_conditions']
                     query = f"weather temperature {conditions.get('temperature', 20)} humidity {conditions.get('humidity', 60)}"
                     
                     try:
+                        self._broadcast_agent_status('pattern_analysis', 'running', 0.6, 
+                                                   "Retrieving similar weather patterns...")
                         similar_patterns = self.rag_service.retrieve_similar_weather(query, k=5)
                         patterns = [{'content': p.page_content, 'metadata': getattr(p, 'metadata', {})} for p in similar_patterns]
                         rag_confidence = min(0.9, len(patterns) * 0.15)  # Scale confidence based on patterns found
@@ -203,18 +264,36 @@ class LangGraphWeatherService:
                 state['rag_confidence'] = rag_confidence
                 state['agent_reports']['pattern_analyzer'] = f"✅ Found {len(patterns)} similar patterns (confidence: {rag_confidence:.2f})"
                 
+                # Broadcast completion
+                self._broadcast_agent_status('pattern_analysis', 'completed', 1.0, 
+                                           f"Pattern analysis completed - Found {len(patterns)} similar patterns",
+                                           data={'patterns_count': len(patterns), 'confidence': rag_confidence})
+                
                 return state
                 
             except Exception as e:
                 logger.error(f"❌ Pattern Analysis Agent failed: {e}")
                 state['agent_reports']['pattern_analyzer'] = f"❌ Pattern analysis failed: {str(e)}"
+                
+                # Broadcast error
+                self._broadcast_agent_status('pattern_analysis', 'error', 0.0, 
+                                           f"Pattern analysis failed: {str(e)}")
+                
                 return state
         
         def meteorological_expert_agent(state: WeatherAnalysisState) -> WeatherAnalysisState:
             """Agent applying meteorological expertise"""
             logger.info("🌤️ Meteorological Expert Agent: Applying domain expertise")
             
+            # Broadcast agent start
+            self._broadcast_agent_status('meteorological', 'running', 0.1, 
+                                       "Starting meteorological analysis...")
+            
             try:
+                # Broadcast progress
+                self._broadcast_agent_status('meteorological', 'running', 0.3, 
+                                           "Analyzing seasonal factors...")
+                
                 # Determine seasonal factors
                 current_month = datetime.now().month
                 if current_month in [12, 1, 2]:
@@ -229,6 +308,10 @@ class LangGraphWeatherService:
                 else:
                     season = "Autumn"
                     seasonal_factors = "Cooling trends, transitional weather, stable systems"
+                
+                # Broadcast progress
+                self._broadcast_agent_status('meteorological', 'running', 0.6, 
+                                           "Analyzing atmospheric conditions...")
                 
                 # Analyze atmospheric conditions
                 conditions = state['current_conditions']
@@ -255,18 +338,36 @@ class LangGraphWeatherService:
                 state['analysis_results']['meteorological'] = meteorological_analysis
                 state['agent_reports']['meteorologist'] = f"✅ {season} analysis: {conditions_assessment}"
                 
+                # Broadcast completion
+                self._broadcast_agent_status('meteorological', 'completed', 1.0, 
+                                           f"Meteorological analysis completed - {season}: {conditions_assessment}",
+                                           data=meteorological_analysis)
+                
                 return state
                 
             except Exception as e:
                 logger.error(f"❌ Meteorological Expert Agent failed: {e}")
                 state['agent_reports']['meteorologist'] = f"❌ Meteorological analysis failed: {str(e)}"
+                
+                # Broadcast error
+                self._broadcast_agent_status('meteorological', 'error', 0.0, 
+                                           f"Meteorological analysis failed: {str(e)}")
+                
                 return state
         
         def confidence_assessment_agent(state: WeatherAnalysisState) -> WeatherAnalysisState:
             """Agent responsible for assessing prediction confidence"""
             logger.info("🎯 Confidence Assessment Agent: Evaluating prediction reliability")
             
+            # Broadcast agent start
+            self._broadcast_agent_status('confidence_assessment', 'running', 0.1, 
+                                       "Starting confidence assessment...")
+            
             try:
+                # Broadcast progress
+                self._broadcast_agent_status('confidence_assessment', 'running', 0.3, 
+                                           "Evaluating data quality factors...")
+                
                 # Calculate overall confidence based on multiple factors
                 confidence_factors = {
                     'data_quality': 0.0,
@@ -296,6 +397,10 @@ class LangGraphWeatherService:
                 weights = {'data_quality': 0.3, 'pattern_match': 0.3, 'meteorological_expertise': 0.2, 'service_availability': 0.2}
                 overall_confidence = sum(confidence_factors[factor] * weights[factor] for factor in weights)
                 
+                # Broadcast progress
+                self._broadcast_agent_status('confidence_assessment', 'running', 0.7, 
+                                           "Calculating overall confidence score...")
+                
                 # Determine confidence level
                 if overall_confidence >= 0.8:
                     confidence_level = "High"
@@ -314,16 +419,30 @@ class LangGraphWeatherService:
                 }
                 state['agent_reports']['confidence_assessor'] = f"✅ Confidence: {confidence_level} ({overall_confidence:.2f})"
                 
+                # Broadcast completion
+                self._broadcast_agent_status('confidence_assessment', 'completed', 1.0, 
+                                           f"Confidence assessment completed - {confidence_level} ({overall_confidence:.2f})",
+                                           data={'confidence_level': confidence_level, 'score': overall_confidence, 'factors': confidence_factors})
+                
                 return state
                 
             except Exception as e:
                 logger.error(f"❌ Confidence Assessment Agent failed: {e}")
                 state['agent_reports']['confidence_assessor'] = f"❌ Confidence assessment failed: {str(e)}"
+                
+                # Broadcast error
+                self._broadcast_agent_status('confidence_assessment', 'error', 0.0, 
+                                           f"Confidence assessment failed: {str(e)}")
+                
                 return state
         
         def prediction_generator_agent(state: WeatherAnalysisState) -> WeatherAnalysisState:
             """Agent responsible for generating the final prediction"""
             logger.info("🌟 Prediction Generator Agent: Creating final forecast")
+            
+            # Broadcast agent start
+            self._broadcast_agent_status('prediction_generator', 'running', 0.1, 
+                                       "Starting prediction generation...")
             
             try:
                 # Compile all analysis for prediction generation
@@ -334,6 +453,10 @@ class LangGraphWeatherService:
                 meteorological = state.get('analysis_results', {}).get('meteorological', {})
                 confidence = state.get('analysis_results', {}).get('confidence', {})
                 
+                # Broadcast progress
+                self._broadcast_agent_status('prediction_generator', 'running', 0.3, 
+                                           "Trying LangChain + RAG prediction...")
+                
                 # Try LangChain + RAG first
                 if self.langchain_service and self.langchain_service.available:
                     try:
@@ -342,9 +465,18 @@ class LangGraphWeatherService:
                             state['final_prediction'] = result['prediction']
                             state['method_used'] = "LangGraph + LangChain + RAG"
                             state['agent_reports']['prediction_generator'] = "✅ LangChain + RAG prediction successful"
+                            
+                            # Broadcast success
+                            self._broadcast_agent_status('prediction_generator', 'completed', 1.0, 
+                                                       "LangChain + RAG prediction successful",
+                                                       data={'method': 'LangChain + RAG'})
                             return state
                     except Exception as langchain_error:
                         logger.warning(f"⚠️ LangChain prediction failed: {langchain_error}")
+                
+                # Broadcast progress
+                self._broadcast_agent_status('prediction_generator', 'running', 0.6, 
+                                           "Trying Local LLM prediction...")
                 
                 # Fallback to LM Studio
                 if self.lm_studio_service and self.lm_studio_service.available:
@@ -357,9 +489,18 @@ class LangGraphWeatherService:
                             state['final_prediction'] = prediction
                             state['method_used'] = "LangGraph + Local LLM"
                             state['agent_reports']['prediction_generator'] = "✅ Local LLM prediction successful"
+                            
+                            # Broadcast success
+                            self._broadcast_agent_status('prediction_generator', 'completed', 1.0, 
+                                                       "Local LLM prediction successful",
+                                                       data={'method': 'Local LLM'})
                             return state
                     except Exception as lm_error:
                         logger.warning(f"⚠️ Local LLM prediction failed: {lm_error}")
+                
+                # Broadcast progress
+                self._broadcast_agent_status('prediction_generator', 'running', 0.9, 
+                                           "Generating statistical prediction as fallback...")
                 
                 # Fallback to statistical prediction
                 statistical_prediction = self._generate_statistical_prediction(state)
@@ -367,22 +508,40 @@ class LangGraphWeatherService:
                 state['method_used'] = "LangGraph + Statistical Analysis"
                 state['agent_reports']['prediction_generator'] = "✅ Statistical prediction generated"
                 
+                # Broadcast completion
+                self._broadcast_agent_status('prediction_generator', 'completed', 1.0, 
+                                           "Statistical prediction generated successfully",
+                                           data={'method': 'Statistical Analysis'})
+                
                 return state
                 
             except Exception as e:
                 logger.error(f"❌ Prediction Generator Agent failed: {e}")
                 state['error_message'] = f"Prediction generation failed: {str(e)}"
                 state['agent_reports']['prediction_generator'] = f"❌ Prediction generation failed: {str(e)}"
+                
+                # Broadcast error
+                self._broadcast_agent_status('prediction_generator', 'error', 0.0, 
+                                           f"Prediction generation failed: {str(e)}")
+                
                 return state
         
         def quality_control_agent(state: WeatherAnalysisState) -> WeatherAnalysisState:
             """Agent responsible for validating prediction quality"""
             logger.info("🔍 Quality Control Agent: Validating prediction")
             
+            # Broadcast agent start
+            self._broadcast_agent_status('quality_control', 'running', 0.1, 
+                                       "Starting quality validation...")
+            
             try:
                 prediction = state.get('final_prediction', '')
                 quality_score = 0.0
                 quality_issues = []
+                
+                # Broadcast progress
+                self._broadcast_agent_status('quality_control', 'running', 0.3, 
+                                           "Checking prediction length and content...")
                 
                 # Check prediction length
                 if len(prediction) < 100:
@@ -411,8 +570,17 @@ class LangGraphWeatherService:
                 if elements_found < 2:
                     quality_issues.append("Insufficient weather details")
                 
+                # Broadcast progress
+                self._broadcast_agent_status('quality_control', 'running', 0.8, 
+                                           "Finalizing quality assessment...")
+                
                 state['quality_score'] = quality_score
                 state['agent_reports']['quality_controller'] = f"✅ Quality score: {quality_score:.2f}, Issues: {len(quality_issues)}"
+                
+                # Broadcast completion
+                self._broadcast_agent_status('quality_control', 'completed', 1.0, 
+                                           f"Quality validation completed - Score: {quality_score:.2f}",
+                                           data={'quality_score': quality_score, 'issues_count': len(quality_issues)})
                 
                 return state
                 
@@ -420,6 +588,11 @@ class LangGraphWeatherService:
                 logger.error(f"❌ Quality Control Agent failed: {e}")
                 state['agent_reports']['quality_controller'] = f"❌ Quality control failed: {str(e)}"
                 state['quality_score'] = 0.0
+                
+                # Broadcast error
+                self._broadcast_agent_status('quality_control', 'error', 0.0, 
+                                           f"Quality control failed: {str(e)}")
+                
                 return state
         
         # Route based on data quality
@@ -636,13 +809,14 @@ Days 1-{min(3, days)}: Similar conditions expected with normal daily variations
 
 **Note:** This prediction is generated using statistical analysis. For enhanced accuracy, ensure AI services are available."""
     
-    def predict_weather_with_langgraph(self, location: str = "Tokyo", prediction_days: int = 3) -> Dict[str, Any]:
+    def predict_weather_with_langgraph(self, location: str = "Tokyo", prediction_days: int = 3, workflow_id: str = None) -> Dict[str, Any]:
         """
         Generate weather prediction using LangGraph multi-agent system
         
         Args:
             location: Location for weather prediction
             prediction_days: Number of days to predict
+            workflow_id: Optional workflow ID for WebSocket tracking
             
         Returns:
             Dict containing prediction result with agent analysis
@@ -656,6 +830,17 @@ Days 1-{min(3, days)}: Similar conditions expected with normal daily variations
         
         try:
             logger.info(f"🧠 Starting LangGraph multi-agent prediction for {location}, {prediction_days} days")
+            
+            # Set current workflow ID for WebSocket broadcasting
+            self.current_workflow_id = workflow_id
+            
+            # Start workflow if WebSocket service is available
+            if self.websocket_service and not workflow_id:
+                workflow_id = self.websocket_service.start_workflow(
+                    workflow_type='weather_prediction',
+                    params={'location': location, 'prediction_days': prediction_days}
+                )
+                self.current_workflow_id = workflow_id
             
             # Initialize state
             initial_state = WeatherAnalysisState(
@@ -687,6 +872,7 @@ Days 1-{min(3, days)}: Similar conditions expected with normal daily variations
                 "method": "langgraph_multi_agent",
                 "model_used": final_state.get('method_used', 'LangGraph Multi-Agent System'),
                 "success": bool(final_state.get('final_prediction')),
+                "workflow_id": self.current_workflow_id,
                 "confidence_level": self._format_confidence_level(final_state.get('confidence_score', 0.0)),
                 "quality_score": final_state.get('quality_score', 0.0),
                 
@@ -713,7 +899,13 @@ Days 1-{min(3, days)}: Similar conditions expected with normal daily variations
             if final_state.get('error_message'):
                 result['warning'] = final_state['error_message']
             
-            logger.info("✅ LangGraph multi-agent prediction completed successfully")
+            # Broadcast final result via WebSocket
+            if result.get('success'):
+                self._broadcast_workflow_complete(result)
+                logger.info("✅ LangGraph multi-agent prediction completed successfully")
+            else:
+                self._broadcast_workflow_error(final_state.get('error_message', 'Unknown error'))
+            
             return result
             
         except Exception as e:
@@ -761,7 +953,7 @@ Days 1-{min(3, days)}: Similar conditions expected with normal daily variations
 # Global instance for easy access
 langgraph_service = None
 
-def get_langgraph_service(weather_service=None, rag_service=None, langchain_service=None, lm_studio_service=None):
+def get_langgraph_service(weather_service=None, rag_service=None, langchain_service=None, lm_studio_service=None, websocket_service=None):
     """Get the global LangGraph service instance"""
     global langgraph_service
     
@@ -770,7 +962,8 @@ def get_langgraph_service(weather_service=None, rag_service=None, langchain_serv
             weather_service=weather_service,
             rag_service=rag_service,
             langchain_service=langchain_service,
-            lm_studio_service=lm_studio_service
+            lm_studio_service=lm_studio_service,
+            websocket_service=websocket_service
         )
         
         if langgraph_service.available:

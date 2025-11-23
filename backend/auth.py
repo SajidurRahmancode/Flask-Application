@@ -156,6 +156,19 @@ def weather_dashboard():
     
     return render_template('weather_dashboard.html', current_user=current_user)
 
+@auth_bp.route('/realtime')
+def realtime_dashboard():
+    """Real-time LangGraph weather prediction dashboard with WebSocket"""
+    if not is_logged_in():
+        return redirect(url_for('auth.login'))
+    
+    current_user = get_current_user()
+    if not current_user:
+        session.clear()
+        return redirect(url_for('auth.login'))
+    
+    return render_template('realtime_dashboard.html', current_user=current_user)
+
 @auth_bp.route('/profile', methods=['GET', 'POST'])
 def profile():
     """User profile page"""
